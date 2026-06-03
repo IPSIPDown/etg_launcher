@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.InputStream;
+import etg.ipsipdown.launcher.core.UpdateCoordinator;
 
 public class LauncherWindow extends JFrame {
 
@@ -74,6 +75,10 @@ public class LauncherWindow extends JFrame {
         playButton = new MinecraftButton("Играть");
         if (minecraftFont != null) playButton.setFont(minecraftFont.deriveFont(Font.BOLD, 28f));
         centerColumn.add(playButton, gbc);
+        playButton.addActionListener(e -> {
+            setButtonEnabled(false); // Блокируем кнопку, чтобы игрок не нажал её 10 раз подряд
+            new UpdateCoordinator(this).startUpdateProcess(); // Запускаем цепочку обновлений
+        });
 
         // 3. Правая колонка (Настройки)
         JPanel rightColumn = createColumnPanel();
