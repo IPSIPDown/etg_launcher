@@ -20,7 +20,7 @@ public class ProfileInjector {
             Path profilesFile = mcDir.resolve("launcher_profiles.json");
             Path gameDir = Paths.get(appData, ".eternalsky");
 
-            // Если официального лаунчера нет, просто отменяем инъекцию
+
             if (!Files.exists(profilesFile)) {
                 System.out.println("Официальный лаунчер не найден.");
                 return;
@@ -29,30 +29,30 @@ public class ProfileInjector {
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             JsonObject profilesJson;
 
-            // Читаем текущие профили игрока
+
             try (Reader reader = Files.newBufferedReader(profilesFile)) {
                 profilesJson = gson.fromJson(reader, JsonObject.class);
             }
 
-            // Создаем наш кастомный профиль
+
             JsonObject myProfile = new JsonObject();
             myProfile.addProperty("name", "EternalSky");
             myProfile.addProperty("type", "custom");
             myProfile.addProperty("created", Instant.now().toString());
 
-            // Указываем точную версию NeoForge
+
             myProfile.addProperty("lastVersionId", "neoforge-21.1.228");
 
             myProfile.addProperty("icon", "Furnace");
             myProfile.addProperty("gameDir", gameDir.toAbsolutePath().toString());
 
-            // Внедряем профиль.
-            // Используем жесткий ключ "EternalSky_Profile", чтобы при обновлениях
-            // он всегда перезаписывал сам себя, а не создавал новые копии.
+
+
+
             JsonObject profilesObject = profilesJson.getAsJsonObject("profiles");
             profilesObject.add("EternalSky_Profile", myProfile);
 
-            // Сохраняем изменения
+
             try (Writer writer = Files.newBufferedWriter(profilesFile)) {
                 gson.toJson(profilesJson, writer);
             }

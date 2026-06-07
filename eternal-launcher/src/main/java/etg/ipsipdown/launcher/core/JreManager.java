@@ -16,14 +16,14 @@ import java.util.zip.ZipInputStream;
 
 public class JreManager {
 
-    // Прямая ссылка на API Adoptium, которая всегда отдает свежий ZIP с JRE 17 для Windows x64
+
     private static final String JRE_DOWNLOAD_URL = "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse";
 
     public static void installIfMissing(LauncherWindow window) throws Exception {
         Path jreDir = Paths.get("jre");
         Path javaExe = jreDir.resolve("bin").resolve("java.exe");
 
-        // Если java.exe уже есть, значит JRE установлена, ничего не делаем
+
         if (Files.exists(javaExe)) {
             System.out.println("JRE 17 уже установлена. Пропускаем скачивание.");
             return;
@@ -38,7 +38,7 @@ public class JreManager {
 
         Path zipFile = Paths.get("jre_temp.zip");
 
-        // 1. Скачиваем ZIP-архив с Java
+
         HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(JRE_DOWNLOAD_URL)).build();
 
@@ -51,16 +51,16 @@ public class JreManager {
         Files.copy(response.body(), zipFile, StandardCopyOption.REPLACE_EXISTING);
         window.setStatus("Распаковка Java...");
 
-        // 2. Распаковываем ZIP-архив
+
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 String name = entry.getName();
 
-                // Фикс "матрешки": отрезаем первую корневую папку из пути в архиве
-                // (например "jdk-17.0.8-jre/bin/java.exe" превращаем в "bin/java.exe")
+
+
                 int firstSlash = name.indexOf('/');
-                if (firstSlash == -1) continue; // Пропускаем саму корневую папку
+                if (firstSlash == -1) continue;
 
                 String strippedName = name.substring(firstSlash + 1);
                 if (strippedName.isEmpty()) continue;
@@ -76,7 +76,7 @@ public class JreManager {
             }
         }
 
-        // 3. Удаляем временный ZIP-архив, чтобы не мусорить
+
         Files.deleteIfExists(zipFile);
         window.setStatus("Java успешно установлена!");
     }

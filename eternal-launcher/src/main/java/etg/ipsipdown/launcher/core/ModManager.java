@@ -18,6 +18,9 @@ import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Stream;
 
 public class ModManager {
 
@@ -70,7 +73,12 @@ public class ModManager {
 
         int totalFiles = files.size();
         window.setStatus("Успешно прочитано: " + totalFiles + " файлов");
-        Thread.sleep(1000);
+        Thread.sleep(500);
+
+        
+        window.setStatus("Очистка старых модов...");
+        cleanObsoleteMods(files);
+        
 
         int downloaded = 0;
         for (Manifest.ManifestFile fileInfo : files) {
@@ -91,6 +99,62 @@ public class ModManager {
             window.setProgress((int) (((double) downloaded / totalFiles) * 100));
         }
     }
+
+    
+    private void cleanObsoleteMods(List<Manifest.ManifestFile> manifestFiles) {
+        try {
+            Path modsDir = gameDir.resolve("mods");
+            if (!Files.exists(modsDir)) return;
+
+            
+            Set<String> customModsWhitelist = new HashSet<>();
+            Path whitelistFile = gameDir.resolve("custom_mods.txt");
+            if (Files.exists(whitelistFile)) {
+                customModsWhitelist.addAll(Files.readAllLines(whitelistFile));
+            }
+
+            
+            Set<Path> expectedMods = new HashSet<>();
+            for (Manifest.ManifestFile fileInfo : manifestFiles) {
+                String cleanPath = fileInfo.path.replace("\\", "/");
+                if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
+
+                if (cleanPath.startsWith("mods/")) {
+                    expectedMods.add(gameDir.resolve(cleanPath).toAbsolutePath().normalize());
+                }
+            }
+
+            
+            try (Stream<Path> stream = Files.walk(modsDir)) {
+                stream.filter(Files::isRegularFile).forEach(localFile -> {
+                    Path normalizedLocal = localFile.toAbsolutePath().normalize();
+                    String fileName = localFile.getFileName().toString();
+
+                    
+                    
+                    
+                    
+                    if (!expectedMods.contains(normalizedLocal) && fileName.endsWith(".jar")) {
+
+                        if (customModsWhitelist.contains(fileName)) {
+                            System.out.println("[Защита] Кастомный мод игрока сохранен: " + fileName);
+                        } else {
+                            
+                            try {
+                                Files.delete(localFile);
+                                System.out.println("[Очистка] Удален старый/лишний мод: " + fileName);
+                            } catch (Exception e) {
+                                System.err.println("Не удалось удалить файл: " + fileName);
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (Exception e) {
+            System.err.println("Ошибка при очистке старых модов: " + e.getMessage());
+        }
+    }
+    
 
     private boolean requiresDownload(Path file, String expectedHash) {
         if (!Files.exists(file)) return true;

@@ -3,10 +3,18 @@ package etg.ipsipdown.launcher.ui;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+
 import etg.ipsipdown.launcher.core.UpdateCoordinator;
 
 public class LauncherWindow extends JFrame {
@@ -42,7 +50,7 @@ public class LauncherWindow extends JFrame {
             }
         };
 
-        // --- ЦЕНТРАЛЬНАЯ ЧАСТЬ (Логотип и кнопка) ---
+        
         JPanel centerPanel = new JPanel(new GridBagLayout());
         centerPanel.setOpaque(false);
 
@@ -50,10 +58,11 @@ public class LauncherWindow extends JFrame {
         gbc.gridx = 0; gbc.gridy = GridBagConstraints.RELATIVE;
         gbc.insets = new Insets(10, 0, 10, 0);
 
-        centerPanel.add(createLabel("EternalSky", 60, true), gbc); // Увеличил шрифт для красоты
+        centerPanel.add(createLabel("EternalSky", 60, true), gbc);
         centerPanel.add(createLabel("Launcher", 32, true), gbc);
-        centerPanel.add(Box.createRigidArea(new Dimension(0, 50)), gbc);
+        centerPanel.add(Box.createRigidArea(new Dimension(0, 40)), gbc);
 
+        
         playButton = new MinecraftButton("Играть");
         if (minecraftFont != null) playButton.setFont(minecraftFont.deriveFont(Font.BOLD, 28f));
         centerPanel.add(playButton, gbc);
@@ -63,11 +72,34 @@ public class LauncherWindow extends JFrame {
             new UpdateCoordinator(this).startUpdateProcess();
         });
 
-        // --- НИЖНЯЯ ЧАСТЬ (Прогресс-бар и статус) ---
+        
+        JButton addModButton = new JButton("Добавить свой мод...");
+        addModButton.setContentAreaFilled(false);
+        addModButton.setBorderPainted(false);
+        addModButton.setFocusPainted(false);
+        addModButton.setForeground(new Color(180, 180, 180)); 
+        addModButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        if (minecraftFont != null) addModButton.setFont(minecraftFont.deriveFont(Font.PLAIN, 16f));
+
+        
+        addModButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent evt) { addModButton.setForeground(Color.WHITE); }
+            public void mouseExited(MouseEvent evt) { addModButton.setForeground(new Color(180, 180, 180)); }
+        });
+
+        
+        addModButton.addActionListener(e -> handleAddCustomMod());
+
+        
+        gbc.insets = new Insets(0, 0, 0, 0);
+        centerPanel.add(addModButton, gbc);
+        
+
+        
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.Y_AXIS));
         bottomPanel.setOpaque(false);
-        bottomPanel.setBorder(new EmptyBorder(0, 20, 30, 20)); // Отступ снизу для красоты
+        bottomPanel.setBorder(new EmptyBorder(0, 20, 30, 20));
 
         statusLabel = createLabel("Готов к запуску", 16, false);
         statusLabel.setForeground(new Color(200, 200, 200));
@@ -77,7 +109,7 @@ public class LauncherWindow extends JFrame {
         progressBar.setValue(0);
         progressBar.setStringPainted(true);
         progressBar.setAlignmentX(Component.CENTER_ALIGNMENT);
-        progressBar.setMaximumSize(new Dimension(800, 20)); // Чуть уже, чтобы смотрелось солиднее
+        progressBar.setMaximumSize(new Dimension(800, 20));
         progressBar.setForeground(new Color(46, 204, 113));
 
         bottomPanel.add(statusLabel);
@@ -89,6 +121,54 @@ public class LauncherWindow extends JFrame {
 
         add(mainPanel);
     }
+
+    
+    private void handleAddCustomMod() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Выберите файлы модов (.jar)");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Java Archive (*.jar)", "jar"));
+
+        
+        fileChooser.setMultiSelectionEnabled(true);
+
+        int userSelection = fileChooser.showOpenDialog(this);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            
+            File[] selectedFiles = fileChooser.getSelectedFiles();
+
+            try {
+                Path gameDir = Paths.get(System.getenv("APPDATA"), ".eternalsky");
+                Path modsDir = gameDir.resolve("mods");
+                if (!Files.exists(modsDir)) Files.createDirectories(modsDir);
+
+                Path whitelist = gameDir.resolve("custom_mods.txt");
+
+                
+                for (File selectedFile : selectedFiles) {
+                    Path targetFile = modsDir.resolve(selectedFile.getName());
+
+                    
+                    Files.copy(selectedFile.toPath(), targetFile, StandardCopyOption.REPLACE_EXISTING);
+
+                    
+                    Files.writeString(whitelist, selectedFile.getName() + System.lineSeparator(),
+                            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                }
+
+                
+                JOptionPane.showMessageDialog(this,
+                        "Успешно добавлено модов: " + selectedFiles.length + " шт.!",
+                        "Успех", JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this,
+                        "Ошибка при копировании модов: " + ex.getMessage(),
+                        "Ошибка", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+    
 
     public void setStatus(String text) { SwingUtilities.invokeLater(() -> statusLabel.setText(text)); }
     public void setProgress(int value) { SwingUtilities.invokeLater(() -> progressBar.setValue(value)); }

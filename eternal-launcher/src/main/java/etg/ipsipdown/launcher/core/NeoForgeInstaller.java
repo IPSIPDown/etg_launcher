@@ -20,7 +20,7 @@ public class NeoForgeInstaller {
     private final Path minecraftDir;
     private final HttpClient httpClient;
 
-    // Прямая ссылка на официальный установщик NeoForge нужной тебе версии
+
     private static final String NEOFORGE_INSTALLER_URL = "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.228/neoforge-21.1.228-installer.jar";
 
     public NeoForgeInstaller(LauncherWindow window) {
@@ -36,7 +36,7 @@ public class NeoForgeInstaller {
         String versionName = "neoforge-21.1.228";
         Path versionDir = minecraftDir.resolve("versions").resolve(versionName);
 
-        // 1. Проверяем, установлено ли ядро. Если json уже есть, значит всё готово!
+
         if (Files.exists(versionDir.resolve(versionName + ".json"))) {
             System.out.println("NeoForge уже установлен. Пропускаем.");
             return;
@@ -45,14 +45,14 @@ public class NeoForgeInstaller {
         window.setStatus("Скачивание установщика NeoForge...");
         Path tempInstaller = Paths.get("neoforge-installer-temp.jar");
 
-        // 2. Скачиваем официальный инсталлятор
+
         downloadFile(NEOFORGE_INSTALLER_URL, tempInstaller);
 
         window.setStatus("Установка ядра NeoForge (это займет время)...");
         window.setProgress(50);
 
-        // 3. Запускаем инсталлятор в скрытом режиме (фоном)
-        // Команда: java -jar neoforge-installer-temp.jar --installClient "C:\Users\...\AppData\Roaming\.minecraft"
+
+
         ProcessBuilder pb = new ProcessBuilder(
                 "java",
                 "-jar",
@@ -61,23 +61,23 @@ public class NeoForgeInstaller {
                 minecraftDir.toAbsolutePath().toString()
         );
 
-        // Объединяем вывод ошибок и стандартный вывод
+
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
-        // 4. ОЧЕНЬ ВАЖНО: Читаем вывод консоли инсталлятора, иначе он зависнет!
+
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                // Выводим в нашу консоль IDE, чтобы ты видел, что происходит под капотом
+
                 System.out.println("[NeoForge Installer] " + line);
             }
         }
 
-        // 5. Ждем завершения установки
+
         int exitCode = process.waitFor();
 
-        // 6. Удаляем временный файл инсталлятора
+
         Files.deleteIfExists(tempInstaller);
 
         if (exitCode != 0) {
