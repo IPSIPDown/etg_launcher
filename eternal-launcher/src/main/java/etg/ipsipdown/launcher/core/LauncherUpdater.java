@@ -17,7 +17,7 @@ import java.nio.file.StandardCopyOption;
 public class LauncherUpdater {
 
     
-    public static final String CURRENT_VERSION = "1.0.1";
+    public static final String CURRENT_VERSION = "1.0.2";
 
     
     private static final String VERSION_URL = "https://pub-97e8a596b9e44332a4b339c99ee9ef01.r2.dev/Launcher/launcher-version.json";

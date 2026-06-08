@@ -102,7 +102,7 @@ public class UpdateManager {
             } catch (Exception e) {
                 e.printStackTrace();
                 window.setStatus("Ошибка обновления: " + e.getMessage());
-                window.setButtonEnabled(true);
+                window.setButtonsEnabled(true);
             }
         }).start();
     }
@@ -145,7 +145,7 @@ public class UpdateManager {
             System.exit(0);
         } catch (Exception e) {
             e.printStackTrace();
-            window.setButtonEnabled(true);
+            window.setButtonsEnabled(true);
         }
     }
 
