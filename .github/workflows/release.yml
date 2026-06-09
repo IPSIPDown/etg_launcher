@@ -26,11 +26,16 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # 3. НОВЫЙ ШАГ: Создаем config.properties перед сборкой, используя секрет гитхаба
+      # Этот шаг создаст папку и файл правильно через PowerShell
       - name: Inject Discord Token
+        shell: powershell
         run: |
-          mkdir -p src/main/resources
-          echo "discord.token=${{ secrets.DISCORD_BOT_TOKEN }}" > src/main/resources/config.properties
+          $path = "src/main/resources"
+          if (!(Test-Path -Path $path)) {
+           New-Item -ItemType Directory -Path $path -Force
+          }
+          $token = "${{ secrets.DISCORD_BOT_TOKEN }}"
+          Set-Content -Path "$path/config.properties" -Value "discord.token=$token"
 
       # 4. Собираем JAR и сразу запаковываем его в EXE
       - name: Build with Maven
