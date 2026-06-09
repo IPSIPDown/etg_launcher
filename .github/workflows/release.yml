@@ -1,0 +1,48 @@
+name: Build and Release EternalSky
+
+# Скрипт запускается каждый раз, когда ты пушишь код в ветку main
+on:
+  push:
+    branches: [ "main" ]
+
+# Даем гитхабу права на создание и перезапись релизов
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Забираем твой код
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 2. Ставим Java 17
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # 3. НОВЫЙ ШАГ: Создаем config.properties перед сборкой, используя секрет гитхаба
+      - name: Inject Discord Token
+        run: |
+          mkdir -p src/main/resources
+          echo "discord.token=${{ secrets.DISCORD_BOT_TOKEN }}" > src/main/resources/config.properties
+
+      # 4. Собираем JAR и сразу запаковываем его в EXE
+      - name: Build with Maven
+        run: mvn clean package
+
+      # 5. Берем готовый EXE и выкладываем его в публичный релиз!
+      - name: Upload to GitHub Releases
+        uses: ncipollo/release-action@v1
+        with:
+          tag: "latest"
+          name: "Актуальная версия (Latest Build)"
+          body: "Лаунчер был автоматически собран из последней версии кода."
+          artifacts: "target/EternalSky.exe"
+          allowUpdates: true
+          makeLatest: true

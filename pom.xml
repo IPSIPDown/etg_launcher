@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>etg.ipsipdown.launcher</groupId>
+    <artifactId>EternalSky</artifactId>
+    <version>1.0.1</version>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.4</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>etg.ipsipdown.launcher.Main</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.5.2</version>
+                <executions>
+                    <execution>
+                        <id>l4j-clui</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>gui</headerType>
+                            <outfile>${project.build.directory}/EternalSky.exe</outfile>
+                            <jar>${project.build.directory}/${project.artifactId}-${project.version}-jar-with-dependencies.jar</jar>
+
+                            <!-- === ТВОИ НАСТРОЙКИ ИЗ LAUNCH4J === -->
+                            <errTitle>Для работы лаунчера (Майнкрафта тоже так-то), нужна Java минимум версии 21. Скачать? (Ты должен будешь сам это сделать) </errTitle>
+                            <chdir>.</chdir>
+                            <priority>normal</priority>
+                            <downloadUrl>https://download.oracle.com/java/21/archive/jdk-21.0.10_windows-x64_bin.exe</downloadUrl>
+                            <supportUrl>https://www.youtube.com/watch?v=FBpytlvigB4 </supportUrl>
+                            <stayAlive>false</stayAlive>
+                            <!-- ================================== -->
+
+                            <!-- Иконка: обязательно скопируй этот файл в папку src/main/resources/ своего проекта -->
+                            <icon>src/main/resources/icon.ico</icon>
+
+                            <classPath>
+                                <mainClass>etg.ipsipdown.launcher.Main</mainClass>
+                                <preCp>anything</preCp>
+                            </classPath>
+
+                            <!-- === ТВОИ НАСТРОЙКИ JRE === -->
+                            <jre>
+                                <path>%JAVA_HOME%;%PATH%</path>
+                                <requiresJdk>true</requiresJdk>
+                                <requires64Bit>false</requires64Bit>
+                                <minVersion>11.0.0</minVersion>
+                            </jre>
+                            <!-- ========================== -->
+
+                            <versionInfo>
+                                <fileVersion>1.0.3.0</fileVersion>
+                                <txtFileVersion>1.0.3</txtFileVersion>
+                                <fileDescription>EternalSky Launcher</fileDescription>
+                                <copyright>IPSIPDown</copyright>
+                                <productVersion>1.0.3.0</productVersion>
+                                <txtProductVersion>1.0.3</txtProductVersion>
+                                <productName>EternalSky</productName>
+                                <internalName>EternalSky</internalName>
+                                <originalFilename>EternalSky.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

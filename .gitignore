@@ -1,24 +1,33 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# --- Maven ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-node_modules
-dist
-dist-ssr
-*.local
+# --- IntelliJ IDEA / Eclipse ---
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# --- Mac OS / Windows ---
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+ehthumbs.db
+$RECYCLE.BIN/
+
+# --- Java Crash Logs (если лаунчер жестко упадет) ---
+hs_err_pid*.log
+replay_pid*.log
+
+# --- Файлы и мусор самого лаунчера ---
+*.exe
+*.log
+jre/
+jre_temp.zip
+update.bat
+custom_mods.txt
+
+# --- СЕКРЕТЫ (КРИТИЧЕСКИ ВАЖНО) ---
+src/main/resources/config.properties
