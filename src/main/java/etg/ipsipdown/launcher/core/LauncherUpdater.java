@@ -16,7 +16,7 @@ import java.nio.file.StandardCopyOption;
 
 public class LauncherUpdater {
 
-    public static final String CURRENT_VERSION = "1.0.3";
+    public static final String CURRENT_VERSION = "1.0.4";
 
     // ВНИМАНИЕ: Если ты закинул launcher-version.json на гитхаб,
     // замени эту ссылку на "Сырую" (Raw) ссылку с гитхаба!
