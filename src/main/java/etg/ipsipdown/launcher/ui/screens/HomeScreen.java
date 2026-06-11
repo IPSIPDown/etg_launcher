@@ -199,8 +199,11 @@ public class HomeScreen extends JPanel {
         text.setBorder(new EmptyBorder(6, 0, 0, 0));
         card.add(text, BorderLayout.CENTER);
 
-        // Не даём карточке растягиваться по вертикали больше содержимого
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height + 60));
+        // Высоту считаем по реально обёрнутому тексту (минимальная ширина ленты ~430px),
+        // иначе длинные новости обрезались снизу
+        text.setSize(new Dimension(430, Short.MAX_VALUE));
+        int textHeight = text.getPreferredSize().height;
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, textHeight + 70));
         return card;
     }
 
