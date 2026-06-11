@@ -26,6 +26,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Dimension;
@@ -93,6 +94,9 @@ public class HomeScreen extends JPanel {
         center.add(createRightColumn(), BorderLayout.EAST);
 
         add(center, BorderLayout.CENTER);
+
+        // Кнопки-ссылки внизу слева: Discord / GitHub / Поддержать автора
+        add(createBottomLinks(), BorderLayout.SOUTH);
 
         refreshNews();
         startServerStatusUpdates();
@@ -340,23 +344,70 @@ public class HomeScreen extends JPanel {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
+        // прижато к низу правой колонки, ближе к бару загрузки
         panel.setBorder(new EmptyBorder(10, 0, 0, 0));
 
         playButton = new PrimaryButton("Играть");
         playButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         playButton.addActionListener(e -> launch(false));
 
-        cleanLaunchBtn = new GhostButton("Чистый запуск", 13f, Theme.TEXT_MUTED, Theme.RED);
+        cleanLaunchBtn = new GhostButton("Чистый запуск", 16f, Color.WHITE, Theme.RED);
+        cleanLaunchBtn.setFont(Theme.title(16f, false));
         cleanLaunchBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         cleanLaunchBtn.setToolTipText("Включает все моды и проверяет файлы заново");
         cleanLaunchBtn.addActionListener(e -> launch(true));
 
+        GhostButton folderBtn = new GhostButton("Папка игры", 16f, Color.WHITE, Theme.ACCENT_HOVER);
+        folderBtn.setFont(Theme.title(16f, false));
+        folderBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        folderBtn.addActionListener(e -> {
+            try {
+                Files.createDirectories(OsPaths.GAME_DIR);
+                Desktop.getDesktop().open(OsPaths.GAME_DIR.toFile());
+            } catch (Exception ex) {
+                window.getNotifications().warning("Не удалось открыть папку игры");
+            }
+        });
+
         panel.add(playButton);
-        panel.add(Box.createRigidArea(new Dimension(0, 6)));
-        panel.add(cleanLaunchBtn);
         panel.add(Box.createRigidArea(new Dimension(0, 8)));
-        panel.add(createLinksRow());
+        panel.add(cleanLaunchBtn);
+        panel.add(Box.createRigidArea(new Dimension(0, 4)));
+        panel.add(folderBtn);
         return panel;
+    }
+
+    /** Нижний ряд слева: Discord / GitHub / Поддержать автора. */
+    private JPanel createBottomLinks() {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 22, 0));
+        row.setOpaque(false);
+        row.setBorder(new EmptyBorder(8, 2, 0, 0));
+
+        row.add(bottomLink("Discord", () -> openUrl(Theme.DISCORD_URL)));
+        row.add(bottomLink("GitHub", () -> openUrl(Theme.SITE_URL)));
+        row.add(bottomLink("Поддержать автора", () ->
+                CompletableFuture.supplyAsync(etg.ipsipdown.launcher.services.SupportService::click)
+                        .thenAccept(msg -> window.getNotifications().info(msg))));
+        return row;
+    }
+
+    private JButton bottomLink(String text, Runnable action) {
+        GhostButton btn = new GhostButton(text, 15f, Color.WHITE, Theme.GOLD);
+        btn.setFont(Theme.title(15f, false));
+        btn.addActionListener(e -> action.run());
+        return btn;
+    }
+
+    private void openUrl(String url) {
+        if (url == null || url.isBlank()) {
+            window.getNotifications().warning("Ссылка пока не настроена");
+            return;
+        }
+        try {
+            Desktop.getDesktop().browse(URI.create(url));
+        } catch (Exception ex) {
+            window.getNotifications().warning("Не удалось открыть ссылку");
+        }
     }
 
     private void launch(boolean clean) {
@@ -376,42 +427,6 @@ public class HomeScreen extends JPanel {
             playButton.setEnabled(enabled);
             cleanLaunchBtn.setEnabled(enabled);
         });
-    }
-
-    private JPanel createLinksRow() {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
-        row.setOpaque(false);
-
-        if (!Theme.DISCORD_URL.isBlank()) {
-            row.add(linkButton("Discord", Theme.DISCORD_URL));
-        }
-        if (!Theme.SITE_URL.isBlank()) {
-            row.add(linkButton("Сайт", Theme.SITE_URL));
-        }
-
-        GhostButton folderBtn = new GhostButton("Папка игры", 12f);
-        folderBtn.addActionListener(e -> {
-            try {
-                Files.createDirectories(OsPaths.GAME_DIR);
-                Desktop.getDesktop().open(OsPaths.GAME_DIR.toFile());
-            } catch (Exception ex) {
-                window.getNotifications().warning("Не удалось открыть папку игры");
-            }
-        });
-        row.add(folderBtn);
-        return row;
-    }
-
-    private JButton linkButton(String text, String url) {
-        GhostButton btn = new GhostButton(text, 12f, Theme.TEXT_MUTED, Theme.BLUE);
-        btn.addActionListener(e -> {
-            try {
-                Desktop.getDesktop().browse(URI.create(url));
-            } catch (Exception ex) {
-                window.getNotifications().warning("Не удалось открыть ссылку");
-            }
-        });
-        return btn;
     }
 
     private JLabel mutedLabel(String text) {

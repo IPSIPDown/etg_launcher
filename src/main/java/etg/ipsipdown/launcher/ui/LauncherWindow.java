@@ -85,10 +85,14 @@ public class LauncherWindow extends JFrame implements ProgressListener {
         screensContainer.add(new SettingsScreen(this), "SETTINGS");
         screensContainer.add(new LogsScreen(), "LOGS");
 
-        // --- Сайдбар ---
+        // --- Каркас: сайдбар на всю высоту, статус-бар только под контентом ---
+        JPanel content = new JPanel(new BorderLayout());
+        content.setOpaque(false);
+        content.add(screensContainer, BorderLayout.CENTER);
+        content.add(createBottomBar(), BorderLayout.SOUTH);
+
         root.add(createSidebar(), BorderLayout.WEST);
-        root.add(screensContainer, BorderLayout.CENTER);
-        root.add(createBottomBar(), BorderLayout.SOUTH);
+        root.add(content, BorderLayout.CENTER);
 
         add(root);
         showScreen("HOME");
@@ -117,10 +121,10 @@ public class LauncherWindow extends JFrame implements ProgressListener {
         sidebar.add(logo);
         sidebar.add(Box.createRigidArea(new Dimension(0, 26)));
 
-        addNavButton(sidebar, "HOME", "⌂  Главная");
-        addNavButton(sidebar, "MODS", "🧩  Сборка");
-        addNavButton(sidebar, "SETTINGS", "⚙  Настройки");
-        addNavButton(sidebar, "LOGS", "≡  Логи");
+        addNavButton(sidebar, "HOME", "Главная");
+        addNavButton(sidebar, "MODS", "Сборка");
+        addNavButton(sidebar, "SETTINGS", "Настройки");
+        addNavButton(sidebar, "LOGS", "Логи");
 
         sidebar.add(Box.createVerticalGlue());
 
@@ -222,7 +226,8 @@ public class LauncherWindow extends JFrame implements ProgressListener {
         progressBar.setValue(0);
         progressBar.setStringPainted(true);
         progressBar.setAlignmentX(Component.CENTER_ALIGNMENT);
-        progressBar.setMaximumSize(new Dimension(900, 18));
+        // тянется от сайдбара до правого края окна
+        progressBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
         progressBar.setForeground(Theme.ACCENT);
 
         bottomPanel.add(statusLabel);
