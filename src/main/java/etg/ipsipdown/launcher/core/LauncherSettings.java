@@ -2,11 +2,16 @@ package etg.ipsipdown.launcher.core;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class LauncherSettings {
+
+    private static final Logger log = LoggerFactory.getLogger(LauncherSettings.class);
 
     // Настройки игры (дефолтные значения)
     public int ramMegabytes = 4096; // По умолчанию 4 ГБ
@@ -34,7 +39,7 @@ public class LauncherSettings {
                 return settings != null ? settings : new LauncherSettings();
             }
         } catch (Exception e) {
-            System.err.println("Не удалось загрузить настройки, используем дефолт: " + e.getMessage());
+            log.warn("Не удалось загрузить настройки, используем дефолт: {}", e.getMessage());
         }
         return new LauncherSettings();
     }
@@ -48,7 +53,7 @@ public class LauncherSettings {
             String json = GSON.toJson(this);
             Files.writeString(SETTINGS_FILE, json);
         } catch (Exception e) {
-            System.err.println("Не удалось сохранить настройки: " + e.getMessage());
+            log.error("Не удалось сохранить настройки", e);
         }
     }
 }

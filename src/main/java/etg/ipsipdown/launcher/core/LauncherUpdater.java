@@ -2,6 +2,8 @@ package etg.ipsipdown.launcher.core;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.io.File;
@@ -15,6 +17,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 public class LauncherUpdater {
+
+    private static final Logger log = LoggerFactory.getLogger(LauncherUpdater.class);
 
     public static final String CURRENT_VERSION = "2.0.0";
 
@@ -64,7 +68,7 @@ public class LauncherUpdater {
                 System.exit(0);
             }
         } catch (Exception e) {
-            System.err.println("Ошибка при проверке обновления лаунчера: " + e.getMessage());
+            log.warn("Ошибка при проверке обновления лаунчера: {}", e.getMessage());
         }
     }
 

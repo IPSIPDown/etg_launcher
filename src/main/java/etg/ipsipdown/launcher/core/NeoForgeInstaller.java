@@ -1,6 +1,8 @@
 package etg.ipsipdown.launcher.core;
 
 import etg.ipsipdown.launcher.ui.LauncherWindow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -15,6 +17,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 public class NeoForgeInstaller {
+
+    private static final Logger log = LoggerFactory.getLogger(NeoForgeInstaller.class);
 
     private final LauncherWindow window;
     private final Path minecraftDir;
@@ -38,7 +42,7 @@ public class NeoForgeInstaller {
 
 
         if (Files.exists(versionDir.resolve(versionName + ".json"))) {
-            System.out.println("NeoForge уже установлен. Пропускаем.");
+            log.info("NeoForge уже установлен. Пропускаем.");
             return;
         }
 
@@ -70,7 +74,7 @@ public class NeoForgeInstaller {
             String line;
             while ((line = reader.readLine()) != null) {
 
-                System.out.println("[NeoForge Installer] " + line);
+                log.info("[NeoForge Installer] {}", line);
             }
         }
 

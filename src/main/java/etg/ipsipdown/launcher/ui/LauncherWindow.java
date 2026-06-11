@@ -1,5 +1,8 @@
 package etg.ipsipdown.launcher.ui;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,6 +13,8 @@ import java.io.InputStream;
 import etg.ipsipdown.launcher.core.UpdateCoordinator;
 
 public class LauncherWindow extends JFrame {
+
+    private static final Logger log = LoggerFactory.getLogger(LauncherWindow.class);
 
     private Font minecraftFont;
     private Image backgroundImage;
@@ -185,7 +190,7 @@ public class LauncherWindow extends JFrame {
             if (imgStream != null) {
                 backgroundImage = ImageIO.read(imgStream);
             }
-        } catch (Exception e) { System.err.println("Ошибка ресурсов: " + e.getMessage()); }
+        } catch (Exception e) { log.error("Ошибка загрузки ресурсов", e); }
     }
 
     private JLabel createLabel(String text, float size, boolean isBold) {

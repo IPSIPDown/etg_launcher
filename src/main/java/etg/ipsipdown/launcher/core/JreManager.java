@@ -1,6 +1,8 @@
 package etg.ipsipdown.launcher.core;
 
 import etg.ipsipdown.launcher.ui.LauncherWindow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.net.URI;
@@ -16,6 +18,7 @@ import java.util.zip.ZipInputStream;
 
 public class JreManager {
 
+    private static final Logger log = LoggerFactory.getLogger(JreManager.class);
 
     private static final String JRE_DOWNLOAD_URL = "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse";
 
@@ -25,7 +28,7 @@ public class JreManager {
 
 
         if (Files.exists(javaExe)) {
-            System.out.println("JRE 17 уже установлена. Пропускаем скачивание.");
+            log.info("JRE уже установлена. Пропускаем скачивание.");
             return;
         }
 

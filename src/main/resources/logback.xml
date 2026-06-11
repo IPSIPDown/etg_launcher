@@ -1,0 +1,74 @@
+<configuration>
+    <!-- Все логи лаунчера лежат в %APPDATA%\.eternalsky\logs.
+         Minecraft пишет туда же свой latest.log, т.к. .eternalsky — это gameDir профиля. -->
+    <property name="LOG_DIR" value="${APPDATA}/.eternalsky/logs"/>
+    <property name="PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{30} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Основной лог лаунчера -->
+    <appender name="LAUNCHER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/launcher.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/launcher.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>5MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>50MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Отдельный лог процесса обновления (синхронизация файлов, NeoForge, self-update) -->
+    <appender name="UPDATE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/update.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/update.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>5MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>30MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Только ошибки — удобно прикладывать к багрепортам -->
+    <appender name="ERRORS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <file>${LOG_DIR}/errors.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/errors.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>2MB</maxFileSize>
+            <maxHistory>14</maxHistory>
+            <totalSizeCap>20MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Классы процесса обновления дополнительно пишут в update.log -->
+    <logger name="etg.ipsipdown.launcher.core.ModManager"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.core.NeoForgeInstaller"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.core.UpdateCoordinator"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.core.LauncherUpdater"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.core.JreManager"><appender-ref ref="UPDATE"/></logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LAUNCHER"/>
+        <appender-ref ref="ERRORS"/>
+    </root>
+</configuration>

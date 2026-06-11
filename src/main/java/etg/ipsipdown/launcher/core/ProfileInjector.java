@@ -3,6 +3,8 @@ package etg.ipsipdown.launcher.core;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -13,6 +15,8 @@ import java.time.Instant;
 
 public class ProfileInjector {
 
+    private static final Logger log = LoggerFactory.getLogger(ProfileInjector.class);
+
     public static void inject() {
         try {
             String appData = System.getenv("APPDATA");
@@ -22,7 +26,7 @@ public class ProfileInjector {
 
 
             if (!Files.exists(profilesFile)) {
-                System.out.println("Официальный лаунчер не найден.");
+                log.warn("Официальный лаунчер не найден (нет launcher_profiles.json).");
                 return;
             }
 
@@ -58,7 +62,7 @@ public class ProfileInjector {
             }
 
         } catch (Exception e) {
-            System.err.println("Ошибка при создании профиля: " + e.getMessage());
+            log.error("Ошибка при создании профиля", e);
         }
     }
 }

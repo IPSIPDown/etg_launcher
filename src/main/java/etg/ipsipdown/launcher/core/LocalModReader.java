@@ -1,5 +1,8 @@
 package etg.ipsipdown.launcher.core;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.imageio.ImageIO;
 import java.awt.Image;
 import java.io.InputStream;
@@ -17,6 +20,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class LocalModReader {
+
+    private static final Logger log = LoggerFactory.getLogger(LocalModReader.class);
 
     // Структура, в которой мы будем хранить данные каждого мода
     public static class ModInfo {
@@ -43,7 +48,7 @@ public class LocalModReader {
                 }
             });
         } catch (Exception e) {
-            System.err.println("Ошибка при чтении папки модов: " + e.getMessage());
+            log.warn("Ошибка при чтении папки модов: {}", e.getMessage());
         }
         return mods;
     }

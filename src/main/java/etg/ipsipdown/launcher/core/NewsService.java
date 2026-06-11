@@ -2,6 +2,8 @@ package etg.ipsipdown.launcher.core;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -13,7 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Загружает новости из статического файла news.json, лежащего рядом с manifest.json на R2.
+ * Загружает новости из файла news.json в корне репозитория на GitHub —
+ * чтобы опубликовать новость, достаточно отредактировать этот файл в ветке main.
  * Ожидаемый формат файла:
  * [
  *   { "title": "Заголовок", "date": "2026-06-11", "text": "Текст новости" }
@@ -22,7 +25,9 @@ import java.util.List;
  */
 public class NewsService {
 
-    private static final String NEWS_URL = "https://pub-97e8a596b9e44332a4b339c99ee9ef01.r2.dev/news.json";
+    private static final Logger log = LoggerFactory.getLogger(NewsService.class);
+
+    private static final String NEWS_URL = "https://raw.githubusercontent.com/IPSIPDown/etg_launcher/main/news.json";
 
     // Сколько последних новостей показывать
     private static final int POSTS_LIMIT = 5;
@@ -48,7 +53,7 @@ public class NewsService {
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
-                System.err.println("Не удалось загрузить новости. Код: " + response.statusCode());
+                log.warn("Не удалось загрузить новости. Код: {}", response.statusCode());
                 return List.of();
             }
 
@@ -65,7 +70,7 @@ public class NewsService {
             }
             return result;
         } catch (Exception e) {
-            System.err.println("Ошибка при получении новостей: " + e.getMessage());
+            log.warn("Ошибка при получении новостей: {}", e.getMessage());
             return List.of();
         }
     }

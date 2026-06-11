@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import etg.ipsipdown.launcher.net.Manifest;
 import etg.ipsipdown.launcher.ui.LauncherWindow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.lang.reflect.Type;
@@ -23,6 +25,8 @@ import java.util.HashSet;
 import java.util.stream.Stream;
 
 public class ModManager {
+
+    private static final Logger log = LoggerFactory.getLogger(ModManager.class);
 
     private static final String BASE_URL = "https://pub-97e8a596b9e44332a4b339c99ee9ef01.r2.dev";
     private static final String MANIFEST_URL = BASE_URL + "/manifest.json";
@@ -137,21 +141,21 @@ public class ModManager {
                     if (!expectedMods.contains(normalizedLocal) && fileName.endsWith(".jar")) {
 
                         if (customModsWhitelist.contains(fileName)) {
-                            System.out.println("[Защита] Кастомный мод игрока сохранен: " + fileName);
+                            log.info("[Защита] Кастомный мод игрока сохранен: {}", fileName);
                         } else {
-                            
+
                             try {
                                 Files.delete(localFile);
-                                System.out.println("[Очистка] Удален старый/лишний мод: " + fileName);
+                                log.info("[Очистка] Удален старый/лишний мод: {}", fileName);
                             } catch (Exception e) {
-                                System.err.println("Не удалось удалить файл: " + fileName);
+                                log.warn("Не удалось удалить файл: {}", fileName);
                             }
                         }
                     }
                 });
             }
         } catch (Exception e) {
-            System.err.println("Ошибка при очистке старых модов: " + e.getMessage());
+            log.error("Ошибка при очистке старых модов", e);
         }
     }
     

@@ -1,11 +1,16 @@
 package etg.ipsipdown.launcher.core;
 
 import etg.ipsipdown.launcher.ui.LauncherWindow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class UpdateCoordinator {
+
+    private static final Logger log = LoggerFactory.getLogger(UpdateCoordinator.class);
 
     private final LauncherWindow window;
 
@@ -40,7 +45,7 @@ public class UpdateCoordinator {
                 System.exit(0);
 
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Ошибка процесса обновления", e);
                 window.setStatus("Ошибка обновления: " + e.getMessage());
                 window.setButtonsEnabled(true);
             }
@@ -60,12 +65,12 @@ public class UpdateCoordinator {
                             String newName = file.getFileName().toString().replace(".disabled", "");
                             Files.move(file, file.resolveSibling(newName));
                         } catch (Exception e) {
-                            System.err.println("Не удалось включить мод: " + e.getMessage());
+                            log.warn("Не удалось включить мод: {}", e.getMessage());
                         }
                     }
                 });
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Ошибка при включении модов", e);
             }
         }
     }

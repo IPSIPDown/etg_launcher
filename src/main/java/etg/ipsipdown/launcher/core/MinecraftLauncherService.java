@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import etg.ipsipdown.launcher.ui.LauncherWindow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -12,6 +14,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class MinecraftLauncherService {
+
+    private static final Logger log = LoggerFactory.getLogger(MinecraftLauncherService.class);
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -44,7 +48,7 @@ public class MinecraftLauncherService {
             new ProcessBuilder("explorer.exe", "shell:AppsFolder\\Microsoft.4297127D64EC6_8wekyb3d8bbwe!Minecraft").start();
             return;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Не удалось запустить официальный лаунчер Minecraft", e);
         }
 
         window.setStatus("Готово! Открой лаунчер вручную.");
@@ -103,7 +107,7 @@ public class MinecraftLauncherService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Ошибка обновления настроек: " + e.getMessage());
+            log.error("Ошибка обновления настроек профиля", e);
         }
     }
 }
