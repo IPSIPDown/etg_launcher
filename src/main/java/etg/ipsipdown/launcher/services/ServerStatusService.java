@@ -8,6 +8,11 @@ import etg.ipsipdown.launcher.models.ServerStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.naming.Context;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.DirContext;
+import javax.naming.directory.InitialDirContext;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -15,6 +20,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Hashtable;
 
 /**
  * Реализация протокола Server List Ping — то же самое, что делает
@@ -26,10 +32,18 @@ public class ServerStatusService {
 
     private static final int TIMEOUT_MS = 5000;
 
+    // Протокол Minecraft 1.21.1 — NeoForge-серверы сбрасывают handshake с -1
+    private static final int PROTOCOL_VERSION = 767;
+
     public static ServerStatus ping(String host, int port) {
         ServerStatus status = new ServerStatus();
+
+        // Как и сам Minecraft: если порт стандартный, сначала ищем SRV-запись
+        // _minecraft._tcp.<host> — хостинги вроде playit.gg публикуют реальный порт там
+        InetSocketAddress address = resolveAddress(host, port);
+
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(host, port), TIMEOUT_MS);
+            socket.connect(address, TIMEOUT_MS);
             socket.setSoTimeout(TIMEOUT_MS);
 
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
@@ -39,9 +53,9 @@ public class ServerStatusService {
             ByteArrayOutputStream handshakeBytes = new ByteArrayOutputStream();
             DataOutputStream handshake = new DataOutputStream(handshakeBytes);
             handshake.writeByte(0x00);            // packet id
-            writeVarInt(handshake, -1);           // protocol version (-1 = только статус)
-            writeString(handshake, host);
-            handshake.writeShort(port);
+            writeVarInt(handshake, PROTOCOL_VERSION);
+            writeString(handshake, address.getHostString());
+            handshake.writeShort(address.getPort());
             writeVarInt(handshake, 1);            // next state: status
             writeVarInt(out, handshakeBytes.size());
             out.write(handshakeBytes.toByteArray());
@@ -71,10 +85,40 @@ public class ServerStatusService {
             parseStatusJson(json, status);
             status.online = true;
         } catch (Exception e) {
-            log.info("Сервер {}:{} офлайн или недоступен: {}", host, port, e.getMessage());
+            log.info("Сервер {}:{} офлайн или недоступен: {}", address.getHostString(), address.getPort(), e.getMessage());
             status.online = false;
         }
         return status;
+    }
+
+    /**
+     * Резолвит адрес так же, как клиент Minecraft: для стандартного порта 25565
+     * сначала ищет SRV-запись _minecraft._tcp.<host> и берёт хост/порт из неё.
+     */
+    private static InetSocketAddress resolveAddress(String host, int port) {
+        if (port != 25565) return new InetSocketAddress(host, port);
+        try {
+            Hashtable<String, String> env = new Hashtable<>();
+            env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory");
+            env.put(Context.PROVIDER_URL, "dns:");
+            env.put("com.sun.jndi.dns.timeout.initial", "3000");
+            env.put("com.sun.jndi.dns.timeout.retries", "1");
+
+            DirContext ctx = new InitialDirContext(env);
+            Attributes attrs = ctx.getAttributes("_minecraft._tcp." + host, new String[]{"SRV"});
+            Attribute srv = attrs.get("SRV");
+            if (srv != null && srv.size() > 0) {
+                // Формат записи: "priority weight port target"
+                String[] parts = srv.get(0).toString().trim().split("\\s+");
+                int srvPort = Integer.parseInt(parts[2]);
+                String target = parts[3].endsWith(".") ? parts[3].substring(0, parts[3].length() - 1) : parts[3];
+                log.info("SRV-запись для {}: {}:{}", host, target, srvPort);
+                return new InetSocketAddress(target, srvPort);
+            }
+        } catch (Exception e) {
+            log.debug("SRV-запись для {} не найдена: {}", host, e.getMessage());
+        }
+        return new InetSocketAddress(host, port);
     }
 
     private static void parseStatusJson(String json, ServerStatus status) {
