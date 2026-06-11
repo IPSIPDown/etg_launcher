@@ -60,7 +60,9 @@ public class LaunchController {
                 MinecraftLauncherService.launchOfficialMinecraft(progress);
 
                 Thread.sleep(2000);
-                System.exit(0);
+                // При выключенном COMPANION_MODE просто закрывается (как раньше),
+                // при включенном — уходит в трей и держит Discord-статус во время игры
+                etg.ipsipdown.launcher.services.CompanionMode.enterOrExit();
 
             } catch (Exception e) {
                 log.error("Ошибка процесса обновления", e);

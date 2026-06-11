@@ -24,6 +24,13 @@ public class DiscordRichPresence {
     /** Application ID из Discord Developer Portal. Пусто = выключено. */
     private static final String APP_ID = "1513444076517724181";
 
+    /**
+     * Режим «компаньона»: после запуска игры лаунчер не закрывается, а сворачивается
+     * в трей и держит статус «Играет на EternalSky», пока игра не завершится.
+     * ВЫКЛЮЧЕНО по умолчанию — при false лаунчер закрывается после запуска, как раньше.
+     */
+    public static final boolean COMPANION_MODE = false;
+
     private static RandomAccessFile pipe;
 
     /** Подключиться и выставить статус. Все ошибки молча глотаются — это украшение, не критика. */
@@ -60,6 +67,16 @@ public class DiscordRichPresence {
         handshake.addProperty("client_id", APP_ID);
         writeFrame(0, handshake.toString());
         readFrame(); // ответ READY (или ошибка) — содержимое нам не нужно
+    }
+
+    /** Обновить статус, если подключение живо. Ошибки молча глотаются. */
+    public static void updateActivity(String details, String state) {
+        if (pipe == null) return;
+        try {
+            setActivity(details, state);
+        } catch (Exception e) {
+            log.info("Не удалось обновить Rich Presence: {}", e.getMessage());
+        }
     }
 
     private static void setActivity(String details, String state) throws Exception {
