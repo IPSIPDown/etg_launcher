@@ -236,13 +236,24 @@ public class LauncherWindow extends JFrame {
         scrollPane.setOpaque(false); scrollPane.getViewport().setOpaque(false); scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
         newsPanel.add(scrollPane, BorderLayout.CENTER);
-        java.util.concurrent.CompletableFuture.supplyAsync(() -> etg.ipsipdown.launcher.core.DiscordNewsFetcher.fetchLatestNews())
+        java.util.concurrent.CompletableFuture.supplyAsync(etg.ipsipdown.launcher.core.NewsService::fetchLatestNews)
                 .thenAccept(news -> SwingUtilities.invokeLater(() -> {
                     contentPanel.removeAll();
                     if (news.isEmpty()) contentPanel.add(createLabel("Новостей пока нет.", 14, false));
                     else {
-                        for (String post : news) {
-                            JTextArea textArea = new JTextArea(post);
+                        for (etg.ipsipdown.launcher.core.NewsService.NewsItem item : news) {
+                            if (item.title != null && !item.title.isBlank()) {
+                                JLabel itemTitle = createLabel(item.title, 16, true);
+                                itemTitle.setBorder(new EmptyBorder(0, 0, 4, 0));
+                                contentPanel.add(itemTitle);
+                            }
+                            if (item.date != null && !item.date.isBlank()) {
+                                JLabel itemDate = createLabel(item.date, 12, false);
+                                itemDate.setForeground(new Color(150, 150, 150));
+                                itemDate.setBorder(new EmptyBorder(0, 0, 4, 0));
+                                contentPanel.add(itemDate);
+                            }
+                            JTextArea textArea = new JTextArea(item.text);
                             textArea.setLineWrap(true); textArea.setWrapStyleWord(true); textArea.setEditable(false);
                             textArea.setOpaque(false); textArea.setForeground(Color.WHITE);
                             if (minecraftFont != null) textArea.setFont(minecraftFont.deriveFont(Font.PLAIN, 15f));

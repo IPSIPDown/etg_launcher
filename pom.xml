@@ -6,7 +6,7 @@
 
     <groupId>etg.ipsipdown.launcher</groupId>
     <artifactId>EternalSky</artifactId>
-    <version>1.0.1</version>
+    <version>2.0.0</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -98,12 +98,12 @@
                             <!-- ========================== -->
 
                             <versionInfo>
-                                <fileVersion>1.0.3.0</fileVersion>
-                                <txtFileVersion>1.0.3</txtFileVersion>
+                                <fileVersion>2.0.0.0</fileVersion>
+                                <txtFileVersion>${project.version}</txtFileVersion>
                                 <fileDescription>EternalSky Launcher</fileDescription>
                                 <copyright>IPSIPDown</copyright>
-                                <productVersion>1.0.3.0</productVersion>
-                                <txtProductVersion>1.0.3</txtProductVersion>
+                                <productVersion>2.0.0.0</productVersion>
+                                <txtProductVersion>${project.version}</txtProductVersion>
                                 <productName>EternalSky</productName>
                                 <internalName>EternalSky</internalName>
                                 <originalFilename>EternalSky.exe</originalFilename>

@@ -1,9 +1,10 @@
 name: Build and Release EternalSky
 
-# Скрипт запускается каждый раз, когда ты пушишь код в ветку main
+# Релиз собирается только при пуше тега версии (например v2.0.0),
+# чтобы случайный коммит в main не уезжал сразу всем игрокам.
 on:
   push:
-    branches: [ "main" ]
+    tags: [ "v*" ]
 
 # Даем гитхабу права на создание и перезапись релизов
 permissions:
@@ -26,28 +27,29 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Этот шаг создаст папку и файл правильно через PowerShell
-      - name: Inject Discord Token
-        shell: powershell
-        run: |
-          $path = "src/main/resources"
-          if (!(Test-Path -Path $path)) {
-           New-Item -ItemType Directory -Path $path -Force
-          }
-          $token = "${{ secrets.DISCORD_BOT_TOKEN }}"
-          Set-Content -Path "$path/config.properties" -Value "discord.token=$token"
-
-      # 4. Собираем JAR и сразу запаковываем его в EXE
+      # 3. Собираем JAR и сразу запаковываем его в EXE
       - name: Build with Maven
         run: mvn clean package
 
-      # 5. Берем готовый EXE и выкладываем его в публичный релиз!
-      - name: Upload to GitHub Releases
+      # 4. Публикуем релиз с номером версии (для истории)
+      - name: Upload versioned release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: "EternalSky ${{ github.ref_name }}"
+          body: "Автоматическая сборка версии ${{ github.ref_name }}."
+          artifacts: "target/EternalSky.exe"
+          allowUpdates: true
+          makeLatest: true
+
+      # 5. Обновляем релиз "latest" — на него указывает ссылка автообновления
+      #    в уже установленных лаунчерах (version-version.json -> releases/download/latest/...)
+      - name: Update "latest" release
         uses: ncipollo/release-action@v1
         with:
           tag: "latest"
           name: "Актуальная версия (Latest Build)"
-          body: "Лаунчер был автоматически собран из последней версии кода."
+          body: "Лаунчер был автоматически собран из версии ${{ github.ref_name }}."
           artifacts: "target/EternalSky.exe"
           allowUpdates: true
-          makeLatest: true
+          makeLatest: false
