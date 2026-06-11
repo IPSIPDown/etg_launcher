@@ -95,9 +95,6 @@ public class HomeScreen extends JPanel {
 
         add(center, BorderLayout.CENTER);
 
-        // Кнопки-ссылки внизу слева: Discord / GitHub / Поддержать автора
-        add(createBottomLinks(), BorderLayout.SOUTH);
-
         refreshNews();
         startServerStatusUpdates();
         refreshBuildInfo();
@@ -128,6 +125,10 @@ public class HomeScreen extends JPanel {
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
         scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(6, 0));
         container.add(scrollPane, BorderLayout.CENTER);
+
+        // Кнопки-ссылки внизу под новостями: Discord / GitHub / Поддержать автора.
+        // Лежат внутри левой части, чтобы правая колонка доставала до самого низа.
+        container.add(createBottomLinks(), BorderLayout.SOUTH);
 
         JLabel loading = mutedLabel("Загрузка новостей...");
         newsContent.add(loading);
@@ -243,13 +244,12 @@ public class HomeScreen extends JPanel {
         });
         column.add(folderBtn);
 
-        // Играть — в самом низу колонки, над прогресс-баром
+        // Играть — в самом низу колонки, вплотную к прогресс-бару
         column.add(Box.createVerticalGlue());
         playButton = new PrimaryButton("Играть");
         playButton.setAlignmentX(Component.RIGHT_ALIGNMENT);
         playButton.addActionListener(e -> launch(false));
         column.add(playButton);
-        column.add(Box.createRigidArea(new Dimension(0, 6)));
         return column;
     }
 
