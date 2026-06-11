@@ -22,7 +22,7 @@ public class DiscordRichPresence {
     private static final Logger log = LoggerFactory.getLogger(DiscordRichPresence.class);
 
     /** Application ID из Discord Developer Portal. Пусто = выключено. */
-    private static final String APP_ID = ""; // TODO: вставь Application ID своего Discord-приложения
+    private static final String APP_ID = "1513444076517724181";
 
     private static RandomAccessFile pipe;
 
