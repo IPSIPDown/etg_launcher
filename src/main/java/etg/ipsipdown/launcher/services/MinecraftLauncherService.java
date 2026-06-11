@@ -1,9 +1,11 @@
-package etg.ipsipdown.launcher.core;
+package etg.ipsipdown.launcher.services;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import etg.ipsipdown.launcher.ui.LauncherWindow;
+import etg.ipsipdown.launcher.events.ProgressListener;
+import etg.ipsipdown.launcher.models.LauncherSettings;
+import etg.ipsipdown.launcher.utils.OsPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,19 +21,17 @@ public class MinecraftLauncherService {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    public static void launchOfficialMinecraft(LauncherWindow window) {
-        String appData = System.getenv("APPDATA");
+    public static void launchOfficialMinecraft(ProgressListener progress) {
         String p86 = System.getenv("ProgramFiles(x86)");
         String pf = System.getenv("ProgramFiles");
 
-        // --- ОБНОВЛЕНИЕ ПРОФИЛЕЙ ПЕРЕД ЗАПУСКОМ ---
-        updateLauncherProfiles(appData);
-        // ------------------------------------------
+        // Обновляем профиль (память, JVM-аргументы) перед запуском
+        updateLauncherProfiles();
 
         Path[] possiblePaths = {
                 Paths.get(p86, "Minecraft Launcher", "MinecraftLauncher.exe"),
                 Paths.get(pf, "Minecraft Launcher", "MinecraftLauncher.exe"),
-                Paths.get(appData, ".minecraft", "MinecraftLauncher.exe")
+                OsPaths.MINECRAFT_DIR.resolve("MinecraftLauncher.exe")
         };
 
         for (Path path : possiblePaths) {
@@ -39,7 +39,8 @@ public class MinecraftLauncherService {
                 try {
                     new ProcessBuilder(path.toString()).start();
                     return;
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    log.warn("Не удалось запустить {}: {}", path, e.getMessage());
                 }
             }
         }
@@ -51,24 +52,19 @@ public class MinecraftLauncherService {
             log.error("Не удалось запустить официальный лаунчер Minecraft", e);
         }
 
-        window.setStatus("Готово! Открой лаунчер вручную.");
+        progress.onStatus("Готово! Открой лаунчер вручную.");
     }
 
-    private static void updateLauncherProfiles(String appData) {
-        Path profilesPath = Paths.get(appData, ".minecraft", "launcher_profiles.json");
+    private static void updateLauncherProfiles() {
+        Path profilesPath = OsPaths.MINECRAFT_DIR.resolve("launcher_profiles.json");
         if (!Files.exists(profilesPath)) return;
 
         try {
             LauncherSettings settings = LauncherSettings.load();
 
-            // Формируем базу аргументов
+            // ВАЖНО: сюда идут только аргументы JVM. Игровые аргументы (--server и т.п.)
+            // официальный лаунчер через javaArgs не передаёт — раньше это ломало запуск.
             String formattedJavaArgs = "-Xmx" + settings.ramMegabytes + "M -Xms" + settings.ramMegabytes + "M " + settings.jvmArgs;
-
-            // --- ДОБАВЛЯЕМ АРГУМЕНТЫ АВТО-ВХОДА ---
-            if (settings.autoConnect) {
-                formattedJavaArgs += " --server " + settings.serverIp + " --port " + settings.serverPort;
-            }
-            // --------------------------------------
 
             JsonObject root;
             try (Reader reader = Files.newBufferedReader(profilesPath)) {
@@ -78,7 +74,6 @@ public class MinecraftLauncherService {
             if (root == null || !root.has("profiles")) return;
             JsonObject profiles = root.getAsJsonObject("profiles");
 
-            // Ищем профиль (оставляем твой код поиска)
             String targetProfileId = "EternalSky";
             JsonObject targetProfile = null;
 
@@ -95,7 +90,6 @@ public class MinecraftLauncherService {
             }
 
             if (targetProfile != null) {
-                // Обновляем аргументы
                 targetProfile.addProperty("javaArgs", formattedJavaArgs);
 
                 if (settings.customJavaPath != null && !settings.customJavaPath.isEmpty()) {

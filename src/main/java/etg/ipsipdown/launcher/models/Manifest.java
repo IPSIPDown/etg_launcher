@@ -1,4 +1,4 @@
-package etg.ipsipdown.launcher.net;
+package etg.ipsipdown.launcher.models;
 
 import java.util.List;
 

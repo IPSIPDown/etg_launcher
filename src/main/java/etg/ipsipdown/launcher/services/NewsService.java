@@ -1,7 +1,8 @@
-package etg.ipsipdown.launcher.core;
+package etg.ipsipdown.launcher.services;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import etg.ipsipdown.launcher.models.NewsItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,21 +23,17 @@ import java.util.List;
  *   { "title": "Заголовок", "date": "2026-06-11", "text": "Текст новости" }
  * ]
  * Поля title и date необязательные — достаточно text.
+ * Последний удачный ответ кэшируется и показывается, если сети нет.
  */
 public class NewsService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
 
     private static final String NEWS_URL = "https://raw.githubusercontent.com/IPSIPDown/etg_launcher/main/news.json";
+    private static final String CACHE_KEY = "news/news.json";
 
     // Сколько последних новостей показывать
     private static final int POSTS_LIMIT = 5;
-
-    public static class NewsItem {
-        public String title;
-        public String date;
-        public String text;
-    }
 
     public static List<NewsItem> fetchLatestNews() {
         try {
@@ -54,11 +51,22 @@ public class NewsService {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
                 log.warn("Не удалось загрузить новости. Код: {}", response.statusCode());
-                return List.of();
+                return parse(CacheService.getText(CACHE_KEY));
             }
 
-            Type listType = new TypeToken<List<NewsItem>>(){}.getType();
-            List<NewsItem> news = new Gson().fromJson(response.body(), listType);
+            CacheService.putText(CACHE_KEY, response.body());
+            return parse(response.body());
+        } catch (Exception e) {
+            log.warn("Ошибка при получении новостей: {}", e.getMessage());
+            return parse(CacheService.getText(CACHE_KEY));
+        }
+    }
+
+    private static List<NewsItem> parse(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            Type listType = new TypeToken<List<NewsItem>>() {}.getType();
+            List<NewsItem> news = new Gson().fromJson(json, listType);
             if (news == null) return List.of();
 
             List<NewsItem> result = new ArrayList<>();
@@ -70,7 +78,7 @@ public class NewsService {
             }
             return result;
         } catch (Exception e) {
-            log.warn("Ошибка при получении новостей: {}", e.getMessage());
+            log.warn("Не удалось разобрать news.json: {}", e.getMessage());
             return List.of();
         }
     }

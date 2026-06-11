@@ -60,11 +60,12 @@
     </appender>
 
     <!-- Классы процесса обновления дополнительно пишут в update.log -->
-    <logger name="etg.ipsipdown.launcher.core.ModManager"><appender-ref ref="UPDATE"/></logger>
-    <logger name="etg.ipsipdown.launcher.core.NeoForgeInstaller"><appender-ref ref="UPDATE"/></logger>
-    <logger name="etg.ipsipdown.launcher.core.UpdateCoordinator"><appender-ref ref="UPDATE"/></logger>
-    <logger name="etg.ipsipdown.launcher.core.LauncherUpdater"><appender-ref ref="UPDATE"/></logger>
-    <logger name="etg.ipsipdown.launcher.core.JreManager"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.services.SyncService"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.services.DownloadService"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.services.NeoForgeInstaller"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.services.SelfUpdateService"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.services.JavaManager"><appender-ref ref="UPDATE"/></logger>
+    <logger name="etg.ipsipdown.launcher.controllers.LaunchController"><appender-ref ref="UPDATE"/></logger>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

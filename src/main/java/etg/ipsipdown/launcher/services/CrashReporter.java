@@ -1,5 +1,6 @@
-package etg.ipsipdown.launcher.core;
+package etg.ipsipdown.launcher.services;
 
+import etg.ipsipdown.launcher.utils.OsPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +13,6 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.zip.ZipEntry;
@@ -27,8 +27,6 @@ public class CrashReporter {
 
     private static final Logger log = LoggerFactory.getLogger(CrashReporter.class);
 
-    private static final Path GAME_DIR = Paths.get(System.getenv("APPDATA"), ".eternalsky");
-
     public static void install() {
         Thread.setDefaultUncaughtExceptionHandler(CrashReporter::report);
     }
@@ -36,7 +34,7 @@ public class CrashReporter {
     public static void report(Thread thread, Throwable throwable) {
         log.error("Необработанная ошибка в потоке \"{}\"", thread.getName(), throwable);
         try {
-            Path reportsDir = GAME_DIR.resolve("crash-reports");
+            Path reportsDir = OsPaths.GAME_DIR.resolve("crash-reports");
             Files.createDirectories(reportsDir);
 
             String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
@@ -47,12 +45,11 @@ public class CrashReporter {
                 zos.write(buildReport(thread, throwable).getBytes(StandardCharsets.UTF_8));
                 zos.closeEntry();
 
-                Path logsDir = GAME_DIR.resolve("logs");
-                addFileIfExists(zos, logsDir.resolve("launcher.log"), "launcher.log");
-                addFileIfExists(zos, logsDir.resolve("update.log"), "update.log");
-                addFileIfExists(zos, logsDir.resolve("errors.log"), "errors.log");
+                addFileIfExists(zos, OsPaths.LOGS_DIR.resolve("launcher.log"), "launcher.log");
+                addFileIfExists(zos, OsPaths.LOGS_DIR.resolve("update.log"), "update.log");
+                addFileIfExists(zos, OsPaths.LOGS_DIR.resolve("errors.log"), "errors.log");
                 // Лог самой игры: .eternalsky — это gameDir профиля, Minecraft пишет туда
-                addFileIfExists(zos, logsDir.resolve("latest.log"), "minecraft-latest.log");
+                addFileIfExists(zos, OsPaths.LOGS_DIR.resolve("latest.log"), "minecraft-latest.log");
             }
 
             log.info("Crash-отчёт сохранён: {}", zipPath);
@@ -68,7 +65,7 @@ public class CrashReporter {
 
         return "=== EternalSky Launcher Crash Report ===\n"
                 + "Время:          " + new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(new Date()) + "\n"
-                + "Версия лаунчера: " + LauncherUpdater.CURRENT_VERSION + "\n"
+                + "Версия лаунчера: " + SelfUpdateService.CURRENT_VERSION + "\n"
                 + "Поток:          " + thread.getName() + "\n"
                 + "\n--- Система ---\n"
                 + "Java:           " + System.getProperty("java.version")

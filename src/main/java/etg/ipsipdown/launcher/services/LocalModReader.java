@@ -1,10 +1,10 @@
-package etg.ipsipdown.launcher.core;
+package etg.ipsipdown.launcher.services;
 
+import etg.ipsipdown.launcher.models.ModInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
-import java.awt.Image;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,18 +22,6 @@ import java.util.zip.ZipFile;
 public class LocalModReader {
 
     private static final Logger log = LoggerFactory.getLogger(LocalModReader.class);
-
-    // Структура, в которой мы будем хранить данные каждого мода
-    public static class ModInfo {
-        public String fileName;      // Имя файла (например: jei-1.20.jar)
-        public String displayName;   // Красивое имя (например: Just Enough Items)
-        public String version;       // Версия мода
-        public String updateDate;    // Дата загрузки/обновления файла
-        public Image icon;           // Иконка (вытащенная из .jar)
-        public boolean isEnabled;    // Включен или выключен
-        public Path filePath;        // Полный путь к файлу на диске
-        public String sideType;      // Тип мода (Клиентский/Серверный/Общий)
-    }
 
     public static List<ModInfo> getInstalledMods(Path modsDirectory) {
         List<ModInfo> mods = new ArrayList<>();

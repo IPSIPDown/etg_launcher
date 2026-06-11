@@ -1,13 +1,13 @@
-package etg.ipsipdown.launcher.core;
+package etg.ipsipdown.launcher.models;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import etg.ipsipdown.launcher.utils.OsPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 public class LauncherSettings {
 
@@ -16,18 +16,18 @@ public class LauncherSettings {
     // Настройки игры (дефолтные значения)
     public int ramMegabytes = 4096; // По умолчанию 4 ГБ
     public boolean autoConnect = false;
-    public String serverIp = "eternal.playit.plus"; // Сюда потом впишешь IP своего сервера
+    public String serverIp = "eternal.playit.plus";
     public int serverPort = 25565;
 
     public int windowWidth = 1024;
     public int windowHeight = 768;
     public boolean isFullScreen = false;
 
-    // Твой оптимальный набор флагов для G1GC
+    // Оптимальный набор флагов для G1GC
     public String jvmArgs = "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M";
     public String customJavaPath = "";
 
-    private static final Path SETTINGS_FILE = Paths.get(System.getenv("APPDATA"), ".eternalsky", "settings.json");
+    private static final Path SETTINGS_FILE = OsPaths.GAME_DIR.resolve("settings.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     // Загрузить настройки из файла (если файла нет — создаст дефолтные)
