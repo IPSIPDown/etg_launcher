@@ -29,7 +29,7 @@ public class NewsService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
 
-    private static final String NEWS_URL = "https://raw.githubusercontent.com/IPSIPDown/etg_launcher/refs/heads/v2/news.json";
+    private static final String NEWS_URL = "https://raw.githubusercontent.com/IPSIPDown/etg_launcher/main/news.json";
     private static final String CACHE_KEY = "news/news.json";
 
     // Сколько последних новостей показывать
