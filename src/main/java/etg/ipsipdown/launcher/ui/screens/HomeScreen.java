@@ -211,11 +211,45 @@ public class HomeScreen extends JPanel {
         column.setOpaque(false);
         column.setPreferredSize(new Dimension(280, 0));
 
-        column.add(createServerCard());
+        JPanel serverCard = createServerCard();
+        serverCard.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        column.add(serverCard);
         column.add(Box.createRigidArea(new Dimension(0, 12)));
-        column.add(createBuildCard());
+
+        JPanel buildCard = createBuildCard();
+        buildCard.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        column.add(buildCard);
+        column.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Чистый запуск и Папка игры — сразу под блоком «Сборка», по правому краю
+        cleanLaunchBtn = new GhostButton("Чистый запуск", 16f, Color.WHITE, Theme.RED);
+        cleanLaunchBtn.setFont(Theme.title(16f, false));
+        cleanLaunchBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        cleanLaunchBtn.setToolTipText("Включает все моды и проверяет файлы заново");
+        cleanLaunchBtn.addActionListener(e -> launch(true));
+        column.add(cleanLaunchBtn);
+        column.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        GhostButton folderBtn = new GhostButton("Папка игры", 16f, Color.WHITE, Theme.ACCENT_HOVER);
+        folderBtn.setFont(Theme.title(16f, false));
+        folderBtn.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        folderBtn.addActionListener(e -> {
+            try {
+                Files.createDirectories(OsPaths.GAME_DIR);
+                Desktop.getDesktop().open(OsPaths.GAME_DIR.toFile());
+            } catch (Exception ex) {
+                window.getNotifications().warning("Не удалось открыть папку игры");
+            }
+        });
+        column.add(folderBtn);
+
+        // Играть — в самом низу колонки, над прогресс-баром
         column.add(Box.createVerticalGlue());
-        column.add(createActionPanel());
+        playButton = new PrimaryButton("Играть");
+        playButton.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        playButton.addActionListener(e -> launch(false));
+        column.add(playButton);
+        column.add(Box.createRigidArea(new Dimension(0, 6)));
         return column;
     }
 
@@ -339,43 +373,6 @@ public class HomeScreen extends JPanel {
     }
 
     // ====================== ЗАПУСК И ССЫЛКИ ======================
-
-    private JPanel createActionPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
-        // прижато к низу правой колонки, ближе к бару загрузки
-        panel.setBorder(new EmptyBorder(10, 0, 0, 0));
-
-        playButton = new PrimaryButton("Играть");
-        playButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        playButton.addActionListener(e -> launch(false));
-
-        cleanLaunchBtn = new GhostButton("Чистый запуск", 16f, Color.WHITE, Theme.RED);
-        cleanLaunchBtn.setFont(Theme.title(16f, false));
-        cleanLaunchBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        cleanLaunchBtn.setToolTipText("Включает все моды и проверяет файлы заново");
-        cleanLaunchBtn.addActionListener(e -> launch(true));
-
-        GhostButton folderBtn = new GhostButton("Папка игры", 16f, Color.WHITE, Theme.ACCENT_HOVER);
-        folderBtn.setFont(Theme.title(16f, false));
-        folderBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        folderBtn.addActionListener(e -> {
-            try {
-                Files.createDirectories(OsPaths.GAME_DIR);
-                Desktop.getDesktop().open(OsPaths.GAME_DIR.toFile());
-            } catch (Exception ex) {
-                window.getNotifications().warning("Не удалось открыть папку игры");
-            }
-        });
-
-        panel.add(playButton);
-        panel.add(Box.createRigidArea(new Dimension(0, 8)));
-        panel.add(cleanLaunchBtn);
-        panel.add(Box.createRigidArea(new Dimension(0, 4)));
-        panel.add(folderBtn);
-        return panel;
-    }
 
     /** Нижний ряд слева: Discord / GitHub / Поддержать автора. */
     private JPanel createBottomLinks() {
