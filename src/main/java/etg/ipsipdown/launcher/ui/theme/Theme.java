@@ -36,8 +36,8 @@ public final class Theme {
     public static final Color TEXT_DISABLED = new Color(110, 117, 126);
 
     // --- Полезные ссылки (пустая строка = кнопка не показывается) ---
-    public static final String DISCORD_URL = "";   // TODO: вставь инвайт своего Discord, например https://discord.gg/xxxx
-    public static final String SITE_URL = "";      // TODO: сайт проекта, если есть
+    public static final String DISCORD_URL = "https://discord.gg/g45evaAt8Y";
+    public static final String SITE_URL = "https://github.com/IPSIPDown";
 
     // --- Ресурсы ---
     private static Font minecraftFont;
