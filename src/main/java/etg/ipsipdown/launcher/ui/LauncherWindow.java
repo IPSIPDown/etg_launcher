@@ -4,6 +4,7 @@ import etg.ipsipdown.launcher.events.ProgressListener;
 import etg.ipsipdown.launcher.services.SelfUpdateService;
 import etg.ipsipdown.launcher.ui.components.NotificationManager;
 import etg.ipsipdown.launcher.ui.screens.HomeScreen;
+import etg.ipsipdown.launcher.ui.screens.LogsScreen;
 import etg.ipsipdown.launcher.ui.screens.ModsScreen;
 import etg.ipsipdown.launcher.ui.screens.SettingsScreen;
 import etg.ipsipdown.launcher.ui.theme.Theme;
@@ -82,6 +83,7 @@ public class LauncherWindow extends JFrame implements ProgressListener {
         screensContainer.add(homeScreen, "HOME");
         screensContainer.add(new ModsScreen(this), "MODS");
         screensContainer.add(new SettingsScreen(this), "SETTINGS");
+        screensContainer.add(new LogsScreen(), "LOGS");
 
         // --- Сайдбар ---
         root.add(createSidebar(), BorderLayout.WEST);
@@ -118,6 +120,7 @@ public class LauncherWindow extends JFrame implements ProgressListener {
         addNavButton(sidebar, "HOME", "⌂  Главная");
         addNavButton(sidebar, "MODS", "🧩  Сборка");
         addNavButton(sidebar, "SETTINGS", "⚙  Настройки");
+        addNavButton(sidebar, "LOGS", "≡  Логи");
 
         sidebar.add(Box.createVerticalGlue());
 

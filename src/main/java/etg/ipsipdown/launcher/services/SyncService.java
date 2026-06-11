@@ -4,15 +4,20 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import etg.ipsipdown.launcher.events.ProgressListener;
 import etg.ipsipdown.launcher.models.Manifest;
+import etg.ipsipdown.launcher.models.SyncResult;
 import etg.ipsipdown.launcher.utils.HashUtil;
 import etg.ipsipdown.launcher.utils.OsPaths;
+import etg.ipsipdown.launcher.utils.SignatureUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -23,13 +28,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
  * Синхронизация файлов сборки с manifest.json (бывший ModManager).
  * - SHA-256 каждого файла, с кэшем хэшей (size+mtime), чтобы не пересчитывать всё при каждом запуске;
- * - параллельное скачивание в несколько потоков;
- * - очистка устаревших модов с защитой пользовательских через custom_mods.txt.
+ * - параллельное скачивание в несколько потоков с прогрессом по байтам и скоростью;
+ * - проверка свободного места перед скачиванием;
+ * - опциональная Ed25519-подпись манифеста (см. SignatureUtil);
+ * - очистка устаревших модов с защитой пользовательских через custom_mods.txt;
+ * - возвращает SyncResult — что добавилось/обновилось/удалилось.
  */
 public class SyncService {
 
@@ -57,7 +66,9 @@ public class SyncService {
         this.downloader = downloader;
     }
 
-    public void syncFiles() throws Exception {
+    public SyncResult syncFiles() throws Exception {
+        SyncResult result = new SyncResult();
+
         progress.onStatus("Получение списка файлов...");
         progress.onProgress(0);
 
@@ -73,7 +84,7 @@ public class SyncService {
         log.info("Манифест: {} файлов", totalFiles);
 
         progress.onStatus("Очистка старых модов...");
-        cleanObsoleteMods(files);
+        result.removedMods.addAll(cleanObsoleteMods(files));
 
         Map<String, CachedHash> hashCache = loadHashCache();
         Map<String, CachedHash> newHashCache = new ConcurrentHashMap<>(hashCache);
@@ -83,8 +94,15 @@ public class SyncService {
         int checked = 0;
         for (Manifest.ManifestFile fileInfo : files) {
             Path targetPath = resolveTarget(fileInfo);
+            boolean exists = Files.exists(targetPath);
             if (requiresDownload(targetPath, fileInfo.hash, newHashCache)) {
                 toDownload.add(fileInfo);
+                String cleanPath = cleanPath(fileInfo.path);
+                if (cleanPath.startsWith("mods/")) {
+                    String name = targetPath.getFileName().toString();
+                    if (exists) result.updatedMods.add(name);
+                    else result.addedMods.add(name);
+                }
             }
             checked++;
             progress.onProgress((int) (((double) checked / totalFiles) * 100));
@@ -93,21 +111,72 @@ public class SyncService {
         if (toDownload.isEmpty()) {
             log.info("Все файлы актуальны, скачивать нечего.");
         } else {
+            checkDiskSpace(toDownload);
             log.info("Требуется скачать {} файлов", toDownload.size());
             downloadAll(toDownload, newHashCache);
+            result.totalDownloaded = toDownload.size();
         }
 
         saveHashCache(newHashCache);
+
+        if (result.hasModChanges()) {
+            log.info("Изменения сборки: добавлено {}, обновлено {}, удалено {}",
+                    result.addedMods, result.updatedMods, result.removedMods);
+        }
+        return result;
     }
 
     private List<Manifest.ManifestFile> fetchManifest() throws Exception {
         String jsonBody = downloader.fetchString(MANIFEST_URL).trim();
+        verifyManifestSignature(jsonBody);
+
         if (jsonBody.startsWith("[")) {
             Type listType = new TypeToken<List<Manifest.ManifestFile>>() {}.getType();
             return gson.fromJson(jsonBody, listType);
         }
         Manifest manifest = gson.fromJson(jsonBody, Manifest.class);
         return manifest != null ? manifest.files : null;
+    }
+
+    /**
+     * Если в лаунчер зашит публичный ключ — манифест обязан иметь корректную подпись
+     * (manifest.json.sig на R2). Защищает игроков при компрометации хранилища файлов.
+     */
+    private void verifyManifestSignature(String manifestJson) throws Exception {
+        if (!SignatureUtil.isEnabled()) {
+            log.debug("Проверка подписи манифеста выключена (публичный ключ не задан)");
+            return;
+        }
+        String sigB64;
+        try {
+            sigB64 = downloader.fetchString(MANIFEST_URL + ".sig").trim();
+        } catch (Exception e) {
+            throw new RuntimeException("Манифест не подписан (нет manifest.json.sig), обновление остановлено");
+        }
+        byte[] signature = Base64.getDecoder().decode(sigB64);
+        if (!SignatureUtil.verify(manifestJson.getBytes(StandardCharsets.UTF_8), signature)) {
+            throw new RuntimeException("ПОДПИСЬ МАНИФЕСТА НЕ СОВПАЛА! Файлы сборки могли быть подменены.");
+        }
+        log.info("Подпись манифеста подтверждена");
+    }
+
+    /** Проверяем, что на диске хватит места под всё, что собираемся скачать. */
+    private void checkDiskSpace(List<Manifest.ManifestFile> toDownload) throws Exception {
+        long needed = toDownload.stream().mapToLong(f -> Math.max(f.size, 0)).sum();
+        if (needed <= 0) return; // в манифесте нет размеров — проверить нечего
+
+        FileStore store = Files.getFileStore(OsPaths.GAME_DIR);
+        long usable = store.getUsableSpace();
+        // запас 200 МБ, чтобы не забить диск под завязку
+        if (usable < needed + 200L * 1024 * 1024) {
+            throw new RuntimeException("Недостаточно места на диске: нужно ~" + mb(needed)
+                    + " МБ, свободно " + mb(usable) + " МБ");
+        }
+        log.info("Места достаточно: нужно {} МБ, свободно {} МБ", mb(needed), mb(usable));
+    }
+
+    private static long mb(long bytes) {
+        return bytes / (1024 * 1024);
     }
 
     private Path resolveTarget(Manifest.ManifestFile fileInfo) {
@@ -124,22 +193,34 @@ public class SyncService {
 
     private void downloadAll(List<Manifest.ManifestFile> toDownload, Map<String, CachedHash> hashCache) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(DOWNLOAD_THREADS);
-        AtomicInteger done = new AtomicInteger();
-        int total = toDownload.size();
+        AtomicInteger filesDone = new AtomicInteger();
+        AtomicLong bytesDone = new AtomicLong();
+        AtomicLong lastUiUpdate = new AtomicLong();
+        long totalBytes = toDownload.stream().mapToLong(f -> Math.max(f.size, 0)).sum();
+        long startTime = System.currentTimeMillis();
+        int totalFiles = toDownload.size();
+
         try {
             List<Future<?>> futures = new ArrayList<>();
             for (Manifest.ManifestFile fileInfo : toDownload) {
                 futures.add(pool.submit(() -> {
                     Path targetPath = resolveTarget(fileInfo);
                     try {
-                        downloader.downloadFile(BASE_URL + "/" + cleanPath(fileInfo.path), targetPath);
+                        downloader.downloadFile(BASE_URL + "/" + cleanPath(fileInfo.path), targetPath, chunk -> {
+                            long done = bytesDone.addAndGet(chunk);
+                            // обновляем UI не чаще, чем раз в 150 мс
+                            long now = System.currentTimeMillis();
+                            long last = lastUiUpdate.get();
+                            if (now - last > 150 && lastUiUpdate.compareAndSet(last, now)) {
+                                reportByteProgress(done, totalBytes, startTime, filesDone.get(), totalFiles);
+                            }
+                        });
                         cacheHash(hashCache, targetPath, fileInfo.hash);
                     } catch (Exception e) {
                         throw new RuntimeException("Не удалось скачать " + targetPath.getFileName() + ": " + e.getMessage(), e);
                     }
-                    int current = done.incrementAndGet();
-                    progress.onStatus("Скачивание (" + current + "/" + total + "): " + targetPath.getFileName());
-                    progress.onProgress((int) (((double) current / total) * 100));
+                    int current = filesDone.incrementAndGet();
+                    reportByteProgress(bytesDone.get(), totalBytes, startTime, current, totalFiles);
                     return null;
                 }));
             }
@@ -148,12 +229,31 @@ public class SyncService {
             pool.shutdownNow();
         }
         progress.onStatus("Все файлы успешно обновлены!");
+        progress.onProgress(100);
     }
 
-    private void cleanObsoleteMods(List<Manifest.ManifestFile> manifestFiles) {
+    private void reportByteProgress(long done, long total, long startTime, int filesDone, int totalFiles) {
+        double elapsedSec = Math.max((System.currentTimeMillis() - startTime) / 1000.0, 0.1);
+        double speedMb = (done / (1024.0 * 1024.0)) / elapsedSec;
+
+        if (total > 0) {
+            progress.onStatus(String.format("Скачивание: %d / %d МБ • %.1f МБ/с • файл %d из %d",
+                    mb(done), mb(total), speedMb, Math.min(filesDone + 1, totalFiles), totalFiles));
+            progress.onProgress((int) ((double) done / total * 100));
+        } else {
+            // в манифесте нет размеров — остаёмся на счётчике файлов
+            progress.onStatus(String.format("Скачивание: файл %d из %d • %.1f МБ/с",
+                    Math.min(filesDone + 1, totalFiles), totalFiles, speedMb));
+            progress.onProgress((int) ((double) filesDone / totalFiles * 100));
+        }
+    }
+
+    /** Удаляет устаревшие моды; возвращает имена удалённых (для changelog). */
+    private List<String> cleanObsoleteMods(List<Manifest.ManifestFile> manifestFiles) {
+        List<String> removed = new ArrayList<>();
         try {
             Path modsDir = OsPaths.MODS_DIR;
-            if (!Files.exists(modsDir)) return;
+            if (!Files.exists(modsDir)) return removed;
 
             Set<String> customModsWhitelist = new HashSet<>();
             if (Files.exists(OsPaths.CUSTOM_MODS_WHITELIST)) {
@@ -179,6 +279,7 @@ public class SyncService {
                         } else {
                             try {
                                 Files.delete(localFile);
+                                removed.add(fileName);
                                 log.info("[Очистка] Удален старый/лишний мод: {}", fileName);
                             } catch (Exception e) {
                                 log.warn("Не удалось удалить файл: {}", fileName);
@@ -190,6 +291,7 @@ public class SyncService {
         } catch (Exception e) {
             log.error("Ошибка при очистке старых модов", e);
         }
+        return removed;
     }
 
     private boolean requiresDownload(Path file, String expectedHash, Map<String, CachedHash> hashCache) {
@@ -246,6 +348,16 @@ public class SyncService {
             Files.writeString(HASH_CACHE_FILE, gson.toJson(cache));
         } catch (Exception e) {
             log.warn("Не удалось сохранить кэш хэшей: {}", e.getMessage());
+        }
+    }
+
+    /** Сбросить кэш хэшей — при следующем запуске все файлы будут проверены заново. */
+    public static boolean resetHashCache() {
+        try {
+            return Files.deleteIfExists(HASH_CACHE_FILE);
+        } catch (Exception e) {
+            log.warn("Не удалось удалить кэш хэшей: {}", e.getMessage());
+            return false;
         }
     }
 }

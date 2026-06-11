@@ -31,6 +31,9 @@ public class Main {
             // Проверка обновлений — в фоне, после показа окна:
             // лаунчер больше не зависает на старте при плохой сети
             SelfUpdateService.checkAsync();
+
+            // Discord Rich Presence (работает, только если задан APP_ID)
+            etg.ipsipdown.launcher.services.DiscordRichPresence.connectAsync();
         });
     }
 }

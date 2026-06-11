@@ -128,6 +128,12 @@ public class ServerStatusService {
             JsonObject players = root.getAsJsonObject("players");
             if (players.has("online")) status.playersOnline = players.get("online").getAsInt();
             if (players.has("max")) status.playersMax = players.get("max").getAsInt();
+            if (players.has("sample")) {
+                for (JsonElement p : players.getAsJsonArray("sample")) {
+                    JsonObject player = p.getAsJsonObject();
+                    if (player.has("name")) status.players.add(player.get("name").getAsString());
+                }
+            }
         }
         if (root.has("version")) {
             JsonObject version = root.getAsJsonObject("version");

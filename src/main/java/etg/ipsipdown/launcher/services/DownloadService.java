@@ -37,6 +37,13 @@ public class DownloadService {
 
     /** Скачать файл в target (создаёт родительские папки, перезаписывает существующий). */
     public void downloadFile(String rawUrl, Path target) throws Exception {
+        downloadFile(rawUrl, target, null);
+    }
+
+    /**
+     * Скачать файл, сообщая о каждой порции байт (для прогресса по байтам и скорости).
+     */
+    public void downloadFile(String rawUrl, Path target, java.util.function.LongConsumer onBytes) throws Exception {
         if (target.getParent() != null) Files.createDirectories(target.getParent());
 
         String safeUrl = rawUrl.replace(" ", "%20").replace("[", "%5B").replace("]", "%5D");
@@ -45,8 +52,22 @@ public class DownloadService {
         HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
         if (response.statusCode() != 200) throw new Exception("HTTP " + response.statusCode() + " при скачивании " + rawUrl);
-        try (InputStream body = response.body()) {
-            Files.copy(body, target, StandardCopyOption.REPLACE_EXISTING);
+
+        if (onBytes == null) {
+            try (InputStream body = response.body()) {
+                Files.copy(body, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return;
+        }
+
+        try (InputStream body = response.body();
+             java.io.OutputStream out = Files.newOutputStream(target)) {
+            byte[] buffer = new byte[16384];
+            int read;
+            while ((read = body.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+                onBytes.accept(read);
+            }
         }
     }
 

@@ -207,7 +207,15 @@ public class SettingsScreen extends JPanel {
         GhostButton openGame = new GhostButton("Папка игры", 14f);
         openGame.addActionListener(e -> openFolder(OsPaths.GAME_DIR));
 
+        GhostButton verifyFiles = new GhostButton("Проверить файлы", 14f, Theme.ORANGE, Theme.TEXT);
+        verifyFiles.setToolTipText("Сбрасывает кэш проверки — при следующем запуске все файлы сборки будут проверены заново");
+        verifyFiles.addActionListener(e -> {
+            etg.ipsipdown.launcher.services.SyncService.resetHashCache();
+            window.getNotifications().success("Кэш сброшен. При следующем запуске все файлы будут проверены заново.");
+        });
+
         buttons.add(checkUpdates);
+        buttons.add(verifyFiles);
         buttons.add(openLogs);
         buttons.add(openGame);
         panel.add(buttons);

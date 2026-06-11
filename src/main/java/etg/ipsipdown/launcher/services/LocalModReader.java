@@ -1,11 +1,16 @@
 package etg.ipsipdown.launcher.services;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import etg.ipsipdown.launcher.models.ModInfo;
+import etg.ipsipdown.launcher.utils.OsPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,32 +18,139 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+/**
+ * Чтение информации о модах из .jar файлов.
+ * Метаданные и иконки кэшируются в cache\modicons (ключ — размер+время файла),
+ * поэтому повторное открытие экрана «Сборка» не распаковывает архивы заново.
+ */
 public class LocalModReader {
 
     private static final Logger log = LoggerFactory.getLogger(LocalModReader.class);
+
+    private static final Path ICON_CACHE_DIR = OsPaths.CACHE_DIR.resolve("modicons");
+    private static final Path INDEX_FILE = ICON_CACHE_DIR.resolve("index.json");
+    private static final Gson GSON = new Gson();
+
+    /** Запись кэша метаданных одного мода. */
+    private static class CacheEntry {
+        long size;
+        long mtime;
+        String displayName;
+        String version;
+        String side;
+        String updateDate;
+        boolean hasIcon;
+    }
 
     public static List<ModInfo> getInstalledMods(Path modsDirectory) {
         List<ModInfo> mods = new ArrayList<>();
         if (!Files.exists(modsDirectory)) return mods;
 
+        Map<String, CacheEntry> index = loadIndex();
+        boolean[] dirty = {false};
+
         try {
             Files.list(modsDirectory).forEach(file -> {
                 String name = file.getFileName().toString();
-                // Ищем только файлы модов (и выключенные моды)
                 if (name.endsWith(".jar") || name.endsWith(".jar.disabled")) {
-                    mods.add(readModInfo(file));
+                    mods.add(readWithCache(file, index, dirty));
                 }
             });
         } catch (Exception e) {
             log.warn("Ошибка при чтении папки модов: {}", e.getMessage());
         }
+
+        if (dirty[0]) saveIndex(index);
         return mods;
+    }
+
+    private static ModInfo readWithCache(Path file, Map<String, CacheEntry> index, boolean[] dirty) {
+        String fileName = file.getFileName().toString();
+        try {
+            long size = Files.size(file);
+            long mtime = Files.getLastModifiedTime(file).toMillis();
+
+            CacheEntry cached = index.get(fileName);
+            if (cached != null && cached.size == size && cached.mtime == mtime) {
+                return fromCache(file, fileName, cached);
+            }
+
+            // Кэша нет или файл изменился — читаем jar и обновляем кэш
+            ModInfo info = readModInfo(file);
+            CacheEntry entry = new CacheEntry();
+            entry.size = size;
+            entry.mtime = mtime;
+            entry.displayName = info.displayName;
+            entry.version = info.version;
+            entry.side = info.sideType;
+            entry.updateDate = info.updateDate;
+            entry.hasIcon = info.icon instanceof BufferedImage;
+            if (entry.hasIcon) {
+                try {
+                    Files.createDirectories(ICON_CACHE_DIR);
+                    ImageIO.write((BufferedImage) info.icon, "png", iconFile(fileName).toFile());
+                } catch (Exception e) {
+                    entry.hasIcon = false;
+                }
+            }
+            index.put(fileName, entry);
+            dirty[0] = true;
+            return info;
+        } catch (Exception e) {
+            return readModInfo(file);
+        }
+    }
+
+    private static ModInfo fromCache(Path file, String fileName, CacheEntry cached) {
+        ModInfo info = new ModInfo();
+        info.fileName = fileName;
+        info.filePath = file;
+        info.isEnabled = !fileName.endsWith(".disabled");
+        info.displayName = cached.displayName;
+        info.version = cached.version;
+        info.sideType = cached.side;
+        info.updateDate = cached.updateDate;
+        if (cached.hasIcon) {
+            try {
+                info.icon = ImageIO.read(iconFile(fileName).toFile());
+            } catch (Exception ignored) {
+            }
+        }
+        return info;
+    }
+
+    private static Path iconFile(String modFileName) {
+        return ICON_CACHE_DIR.resolve(modFileName.replace(".disabled", "") + ".png");
+    }
+
+    private static Map<String, CacheEntry> loadIndex() {
+        try {
+            if (Files.exists(INDEX_FILE)) {
+                Type mapType = new TypeToken<HashMap<String, CacheEntry>>() {}.getType();
+                Map<String, CacheEntry> index = GSON.fromJson(Files.readString(INDEX_FILE), mapType);
+                if (index != null) return index;
+            }
+        } catch (Exception e) {
+            log.warn("Кэш модов повреждён, пересоздаём: {}", e.getMessage());
+        }
+        return new HashMap<>();
+    }
+
+    private static void saveIndex(Map<String, CacheEntry> index) {
+        try {
+            Files.createDirectories(ICON_CACHE_DIR);
+            Files.writeString(INDEX_FILE, GSON.toJson(index));
+        } catch (Exception e) {
+            log.warn("Не удалось сохранить кэш модов: {}", e.getMessage());
+        }
     }
 
     private static ModInfo readModInfo(Path file) {

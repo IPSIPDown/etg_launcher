@@ -53,6 +53,7 @@ public class HomeScreen extends JPanel {
     private JLabel serverPlayersLabel;
     private JLabel serverMotdLabel;
     private JLabel serverPingLabel;
+    private JLabel serverNamesLabel;
 
     // Карточка сборки
     private JLabel modsCountLabel;
@@ -132,6 +133,7 @@ public class HomeScreen extends JPanel {
     public void refreshNews() {
         CompletableFuture.supplyAsync(NewsService::fetchLatestNews)
                 .thenAccept(news -> SwingUtilities.invokeLater(() -> {
+                    notifyIfFreshNews(news);
                     newsContent.removeAll();
                     if (news.isEmpty()) {
                         newsContent.add(mutedLabel("Новостей пока нет."));
@@ -144,6 +146,19 @@ public class HomeScreen extends JPanel {
                     newsContent.revalidate();
                     newsContent.repaint();
                 }));
+    }
+
+    /** Показывает toast, если появилась новость, которой пользователь ещё не видел. */
+    private void notifyIfFreshNews(List<NewsItem> news) {
+        if (news.isEmpty()) return;
+        NewsItem latest = news.get(0);
+        String key = Integer.toHexString((latest.title + "|" + latest.date + "|" + latest.text).hashCode());
+        String lastSeen = etg.ipsipdown.launcher.services.CacheService.getText("news/last_seen.txt");
+        if (lastSeen != null && !lastSeen.trim().equals(key)) {
+            String label = (latest.title != null && !latest.title.isBlank()) ? latest.title : shorten(latest.text, 40);
+            window.getNotifications().info("Новая новость: " + label);
+        }
+        etg.ipsipdown.launcher.services.CacheService.putText("news/last_seen.txt", key);
     }
 
     private JPanel createNewsCard(NewsItem item) {
@@ -204,7 +219,7 @@ public class HomeScreen extends JPanel {
         RoundedPanel card = new RoundedPanel(new BorderLayout());
         card.setBorder(new EmptyBorder(12, 16, 12, 16));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 130));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 165));
 
         JLabel header = new JLabel("Сервер");
         header.setFont(Theme.body(13f, true));
@@ -223,10 +238,13 @@ public class HomeScreen extends JPanel {
         serverPlayersLabel = mutedLabel("");
         serverMotdLabel = mutedLabel("");
         serverPingLabel = mutedLabel("");
+        serverNamesLabel = mutedLabel("");
+        serverNamesLabel.setFont(Theme.body(12f, false));
 
         rows.add(serverStateLabel);
         rows.add(Box.createRigidArea(new Dimension(0, 4)));
         rows.add(serverPlayersLabel);
+        rows.add(serverNamesLabel);
         rows.add(serverMotdLabel);
         rows.add(serverPingLabel);
         card.add(rows, BorderLayout.CENTER);
@@ -254,12 +272,20 @@ public class HomeScreen extends JPanel {
             serverStateLabel.setText("● Онлайн");
             serverStateLabel.setForeground(Theme.ACCENT);
             serverPlayersLabel.setText("Игроки: " + status.playersOnline + " / " + status.playersMax);
+            if (status.players.isEmpty()) {
+                serverNamesLabel.setText("");
+                serverNamesLabel.setToolTipText(null);
+            } else {
+                serverNamesLabel.setText(shorten("В игре: " + String.join(", ", status.players), 38));
+                serverNamesLabel.setToolTipText(String.join(", ", status.players));
+            }
             serverMotdLabel.setText(shorten(status.motd, 34));
             serverPingLabel.setText("Пинг: " + status.pingMs + " мс • " + status.version);
         } else {
             serverStateLabel.setText("● Офлайн");
             serverStateLabel.setForeground(Theme.RED);
             serverPlayersLabel.setText("Сервер недоступен");
+            serverNamesLabel.setText("");
             serverMotdLabel.setText("");
             serverPingLabel.setText("");
         }
@@ -339,6 +365,9 @@ public class HomeScreen extends JPanel {
         new LaunchController(window, () -> {
             setLaunchEnabled(true);
             window.getNotifications().error("Не удалось запустить игру. Подробности в логах.");
+        }, syncResult -> {
+            window.getNotifications().success("Сборка обновлена: " + syncResult.summary());
+            refreshBuildInfo();
         }).startLaunch(clean);
     }
 

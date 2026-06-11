@@ -1,6 +1,7 @@
 package etg.ipsipdown.launcher.controllers;
 
 import etg.ipsipdown.launcher.events.ProgressListener;
+import etg.ipsipdown.launcher.models.SyncResult;
 import etg.ipsipdown.launcher.services.DownloadService;
 import etg.ipsipdown.launcher.services.MinecraftLauncherService;
 import etg.ipsipdown.launcher.services.NeoForgeInstaller;
@@ -23,10 +24,13 @@ public class LaunchController {
 
     private final ProgressListener progress;
     private final Runnable onLaunchFailed;
+    private final java.util.function.Consumer<SyncResult> onSyncResult;
 
-    public LaunchController(ProgressListener progress, Runnable onLaunchFailed) {
+    public LaunchController(ProgressListener progress, Runnable onLaunchFailed,
+                            java.util.function.Consumer<SyncResult> onSyncResult) {
         this.progress = progress;
         this.onLaunchFailed = onLaunchFailed;
+        this.onSyncResult = onSyncResult;
     }
 
     public void startLaunch(boolean isCleanLaunch) {
@@ -43,7 +47,10 @@ public class LaunchController {
                 new NeoForgeInstaller(progress, downloader).install();
 
                 progress.onStatus("Синхронизация файлов EternalSky...");
-                new SyncService(progress, downloader).syncFiles();
+                SyncResult syncResult = new SyncService(progress, downloader).syncFiles();
+                if (onSyncResult != null && syncResult.hasModChanges()) {
+                    onSyncResult.accept(syncResult);
+                }
 
                 progress.onStatus("Интеграция профиля...");
                 ProfileInjector.inject();
