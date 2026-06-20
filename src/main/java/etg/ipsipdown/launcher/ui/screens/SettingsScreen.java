@@ -10,9 +10,11 @@ import etg.ipsipdown.launcher.utils.OsPaths;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 import javax.swing.JSlider;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
@@ -49,6 +51,8 @@ public class SettingsScreen extends JPanel {
     private JTextField portField;
     private JTextField javaPathField;
     private JTextField jvmArgsField;
+    private JRadioButton officialLauncherRadio;
+    private JRadioButton thirdPartyLauncherRadio;
 
     public SettingsScreen(LauncherWindow window) {
         this.window = window;
@@ -187,6 +191,31 @@ public class SettingsScreen extends JPanel {
     private JPanel createLauncherPanel() {
         JPanel panel = verticalPanel();
 
+        // --- Выбор лаунчера ---
+        panel.add(fieldLabel("Тип лаунчера:"));
+
+        officialLauncherRadio = styledRadio("Официальный лаунчер Minecraft");
+        thirdPartyLauncherRadio = styledRadio("Сторонний лаунчер (PrismLauncher, MultiMC и др.)");
+
+        ButtonGroup launcherGroup = new ButtonGroup();
+        launcherGroup.add(officialLauncherRadio);
+        launcherGroup.add(thirdPartyLauncherRadio);
+
+        if ("thirdparty".equals(settings.launcherType)) {
+            thirdPartyLauncherRadio.setSelected(true);
+        } else {
+            officialLauncherRadio.setSelected(true);
+        }
+
+        panel.add(officialLauncherRadio);
+        panel.add(Box.createRigidArea(new java.awt.Dimension(0, 4)));
+        panel.add(thirdPartyLauncherRadio);
+        panel.add(gap());
+        panel.add(hint("При стороннем лаунчере: создай инстанс с NeoForge " +
+                etg.ipsipdown.launcher.services.NeoForgeInstaller.NEOFORGE_VERSION +
+                " и задай папку игры → ~/.eternalsky"));
+        panel.add(gap());
+
         JLabel version = fieldLabel("Версия лаунчера: " + SelfUpdateService.CURRENT_VERSION);
         panel.add(version);
         panel.add(gap());
@@ -250,6 +279,7 @@ public class SettingsScreen extends JPanel {
         settings.jvmArgs = jvmArgsField.getText().trim();
         settings.customJavaPath = javaPathField.getText().trim();
         settings.serverIp = ipField.getText().trim();
+        settings.launcherType = thirdPartyLauncherRadio.isSelected() ? "thirdparty" : "official";
         try {
             settings.serverPort = Integer.parseInt(portField.getText().trim());
         } catch (NumberFormatException ignored) {
@@ -303,5 +333,14 @@ public class SettingsScreen extends JPanel {
 
     private Component gap() {
         return Box.createRigidArea(new Dimension(0, 14));
+    }
+
+    private JRadioButton styledRadio(String text) {
+        JRadioButton radio = new JRadioButton(text);
+        radio.setOpaque(false);
+        radio.setForeground(Theme.TEXT);
+        radio.setFont(Theme.body(14f, false));
+        radio.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return radio;
     }
 }

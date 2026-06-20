@@ -9,6 +9,8 @@ import etg.ipsipdown.launcher.utils.OsPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import etg.ipsipdown.launcher.services.ThirdPartyLauncherDetector.LauncherInfo;
+
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
@@ -22,15 +24,23 @@ public class MinecraftLauncherService {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static void launchOfficialMinecraft(ProgressListener progress) {
-        String p86 = System.getenv("ProgramFiles(x86)");
-        String pf = System.getenv("ProgramFiles");
-
         // Обновляем профиль (память, JVM-аргументы) перед запуском
         updateLauncherProfiles();
 
+        if (OsPaths.isWindows()) {
+            launchWindows(progress);
+        } else {
+            launchLinux(progress);
+        }
+    }
+
+    private static void launchWindows(ProgressListener progress) {
+        String p86 = System.getenv("ProgramFiles(x86)");
+        String pf = System.getenv("ProgramFiles");
+
         Path[] possiblePaths = {
-                Paths.get(p86, "Minecraft Launcher", "MinecraftLauncher.exe"),
-                Paths.get(pf, "Minecraft Launcher", "MinecraftLauncher.exe"),
+                Paths.get(p86 != null ? p86 : "C:\\Program Files (x86)", "Minecraft Launcher", "MinecraftLauncher.exe"),
+                Paths.get(pf != null ? pf : "C:\\Program Files", "Minecraft Launcher", "MinecraftLauncher.exe"),
                 OsPaths.MINECRAFT_DIR.resolve("MinecraftLauncher.exe")
         };
 
@@ -53,6 +63,53 @@ public class MinecraftLauncherService {
         }
 
         progress.onStatus("Готово! Открой лаунчер вручную.");
+    }
+
+    private static void launchLinux(ProgressListener progress) {
+        String home = System.getProperty("user.home");
+
+        String[] candidates = {
+                "/usr/bin/minecraft-launcher",
+                home + "/.local/share/minecraft-launcher/minecraft-launcher",
+                "/opt/minecraft-launcher/minecraft-launcher",
+                "/snap/bin/minecraft"
+        };
+
+        for (String candidate : candidates) {
+            Path path = Paths.get(candidate);
+            if (Files.exists(path)) {
+                try {
+                    new ProcessBuilder(path.toString()).start();
+                    return;
+                } catch (Exception e) {
+                    log.warn("Не удалось запустить {}: {}", path, e.getMessage());
+                }
+            }
+        }
+
+        // Попытка через Flatpak
+        try {
+            Process check = new ProcessBuilder("flatpak", "info", "com.mojang.Minecraft")
+                    .redirectErrorStream(true).start();
+            if (check.waitFor() == 0) {
+                new ProcessBuilder("flatpak", "run", "com.mojang.Minecraft").start();
+                return;
+            }
+        } catch (Exception e) {
+            log.info("Flatpak недоступен: {}", e.getMessage());
+        }
+
+        log.error("Официальный лаунчер Minecraft не найден на Linux");
+        progress.onStatus("Готово! Открой лаунчер вручную.");
+    }
+
+    public static void launchThirdParty(LauncherInfo launcher) {
+        try {
+            new ProcessBuilder(launcher.command()).start();
+            log.info("Запущен {}", launcher.name());
+        } catch (Exception e) {
+            log.error("Не удалось запустить {}: {}", launcher.name(), e.getMessage());
+        }
     }
 
     private static void updateLauncherProfiles() {

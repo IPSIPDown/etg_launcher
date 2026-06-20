@@ -102,21 +102,27 @@ public class CompanionMode {
     /**
      * Ищем java-процесс игры: его командная строка содержит путь .eternalsky (gameDir).
      * На Windows commandLine() бывает недоступен — тогда ориентируемся по факту
-     * наличия javaw.exe, запущенного позже нас.
+     * наличия javaw.exe (Windows) или java (Linux), запущенного позже нас.
      */
     private static boolean isGameRunning() {
         long ourStart = ProcessHandle.current().info().startInstant()
                 .map(java.time.Instant::toEpochMilli).orElse(0L);
 
+        // На Linux игра живёт в ~/.eternalsky, на Windows в %APPDATA%\.eternalsky
+        String gameDirMarker = ".eternalsky";
+
+        // Имя исполняемого файла JVM: javaw.exe на Windows, java на Linux
+        String javaExe = etg.ipsipdown.launcher.utils.OsPaths.isWindows() ? "javaw.exe" : "java";
+
         return ProcessHandle.allProcesses().anyMatch(p -> {
             ProcessHandle.Info info = p.info();
             String cmd = info.commandLine().orElse("");
             if (!cmd.isEmpty()) {
-                return cmd.contains(".eternalsky") && cmd.contains("java");
+                return cmd.contains(gameDirMarker) && cmd.contains("java");
             }
-            // Фолбэк: javaw.exe, стартовавший после нас (так запускается клиент MC)
+            // Фолбэк: процесс JVM, стартовавший после нас (так запускается клиент MC)
             String exe = info.command().orElse("");
-            if (!exe.endsWith("javaw.exe")) return false;
+            if (!java.nio.file.Path.of(exe).getFileName().toString().equals(javaExe)) return false;
             long started = info.startInstant().map(java.time.Instant::toEpochMilli).orElse(0L);
             return started > ourStart;
         });

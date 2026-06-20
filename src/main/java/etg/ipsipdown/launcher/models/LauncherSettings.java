@@ -27,6 +27,9 @@ public class LauncherSettings {
     public String jvmArgs = "-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M";
     public String customJavaPath = "";
 
+    // "official" — официальный лаунчер Minecraft, "thirdparty" — сторонний (PrismLauncher и др.)
+    public String launcherType = "official";
+
     private static final Path SETTINGS_FILE = OsPaths.GAME_DIR.resolve("settings.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 

@@ -53,6 +53,7 @@ public class SyncService {
     private final ProgressListener progress;
     private final DownloadService downloader;
     private final Gson gson = new Gson();
+    private final Path gameDir;
 
     /** Запись кэша: если размер и время изменения файла совпали — хэш не пересчитываем. */
     private static class CachedHash {
@@ -62,8 +63,14 @@ public class SyncService {
     }
 
     public SyncService(ProgressListener progress, DownloadService downloader) {
+        this(progress, downloader, OsPaths.GAME_DIR);
+    }
+
+    /** gameDirOverride — папка игры для инстанса PrismLauncher (/.minecraft). */
+    public SyncService(ProgressListener progress, DownloadService downloader, Path gameDirOverride) {
         this.progress = progress;
         this.downloader = downloader;
+        this.gameDir = gameDirOverride;
     }
 
     public SyncResult syncFiles() throws Exception {
@@ -72,7 +79,7 @@ public class SyncService {
         progress.onStatus("Получение списка файлов...");
         progress.onProgress(0);
 
-        Files.createDirectories(OsPaths.GAME_DIR);
+        Files.createDirectories(gameDir);
 
         List<Manifest.ManifestFile> files = fetchManifest();
         if (files == null || files.isEmpty()) {
@@ -183,7 +190,7 @@ public class SyncService {
         String cleanPath = cleanPath(fileInfo.path);
         return (cleanPath.startsWith("versions") || cleanPath.startsWith("libraries"))
                 ? OsPaths.MINECRAFT_DIR.resolve(cleanPath)
-                : OsPaths.GAME_DIR.resolve(cleanPath);
+                : gameDir.resolve(cleanPath);
     }
 
     private static String cleanPath(String path) {
@@ -252,7 +259,7 @@ public class SyncService {
     private List<String> cleanObsoleteMods(List<Manifest.ManifestFile> manifestFiles) {
         List<String> removed = new ArrayList<>();
         try {
-            Path modsDir = OsPaths.MODS_DIR;
+            Path modsDir = gameDir.resolve("mods");
             if (!Files.exists(modsDir)) return removed;
 
             Set<String> customModsWhitelist = new HashSet<>();
@@ -264,7 +271,7 @@ public class SyncService {
             for (Manifest.ManifestFile fileInfo : manifestFiles) {
                 String cleanPath = cleanPath(fileInfo.path);
                 if (cleanPath.startsWith("mods/")) {
-                    expectedMods.add(OsPaths.GAME_DIR.resolve(cleanPath).toAbsolutePath().normalize());
+                    expectedMods.add(gameDir.resolve(cleanPath).toAbsolutePath().normalize());
                 }
             }
 

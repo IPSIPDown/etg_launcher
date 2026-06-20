@@ -8,13 +8,34 @@ import java.nio.file.Paths;
  */
 public final class OsPaths {
 
-    public static final Path MINECRAFT_DIR = Paths.get(System.getenv("APPDATA"), ".minecraft");
-    public static final Path GAME_DIR = Paths.get(System.getenv("APPDATA"), ".eternalsky");
-    public static final Path MODS_DIR = GAME_DIR.resolve("mods");
-    public static final Path LOGS_DIR = GAME_DIR.resolve("logs");
-    public static final Path CACHE_DIR = GAME_DIR.resolve("cache");
-    public static final Path JRE_DIR = GAME_DIR.resolve("jre");
-    public static final Path CUSTOM_MODS_WHITELIST = GAME_DIR.resolve("custom_mods.txt");
+    public static final Path MINECRAFT_DIR;
+    public static final Path GAME_DIR;
+    public static final Path MODS_DIR;
+    public static final Path LOGS_DIR;
+    public static final Path CACHE_DIR;
+    public static final Path JRE_DIR;
+    public static final Path CUSTOM_MODS_WHITELIST;
+
+    static {
+        if (isWindows()) {
+            String appdata = System.getenv("APPDATA");
+            MINECRAFT_DIR = Paths.get(appdata, ".minecraft");
+            GAME_DIR = Paths.get(appdata, ".eternalsky");
+        } else {
+            String home = System.getProperty("user.home");
+            MINECRAFT_DIR = Paths.get(home, ".minecraft");
+            GAME_DIR = Paths.get(home, ".eternalsky");
+        }
+        MODS_DIR = GAME_DIR.resolve("mods");
+        LOGS_DIR = GAME_DIR.resolve("logs");
+        CACHE_DIR = GAME_DIR.resolve("cache");
+        JRE_DIR = GAME_DIR.resolve("jre");
+        CUSTOM_MODS_WHITELIST = GAME_DIR.resolve("custom_mods.txt");
+    }
+
+    public static boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
+    }
 
     private OsPaths() {
     }

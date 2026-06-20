@@ -21,15 +21,41 @@ import java.util.zip.ZipInputStream;
 
 /**
  * Поиск и установка Java для запуска инсталлятора NeoForge.
- * Порядок: путь из настроек -> своя JRE в .eternalsky\jre -> системная java -> скачать Temurin 21.
+ * Порядок: путь из настроек -> своя JRE в .eternalsky/jre -> системная java -> скачать Temurin 21.
  */
 public class JavaManager {
 
     private static final Logger log = LoggerFactory.getLogger(JavaManager.class);
 
     // NeoForge для MC 1.21 требует Java 21
-    private static final String JRE_DOWNLOAD_URL =
-            "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse";
+    private static final String JRE_DOWNLOAD_URL = buildJreUrl();
+
+    private static String buildJreUrl() {
+        String os;
+        String arch;
+        String osName = System.getProperty("os.name").toLowerCase();
+        String osArch = System.getProperty("os.arch").toLowerCase();
+
+        if (osName.contains("win")) {
+            os = "windows";
+        } else if (osName.contains("mac")) {
+            os = "mac";
+        } else {
+            os = "linux";
+        }
+
+        if (osArch.contains("aarch64") || osArch.contains("arm64")) {
+            arch = "aarch64";
+        } else {
+            arch = "x64";
+        }
+
+        return "https://api.adoptium.net/v3/binary/latest/21/ga/" + os + "/" + arch + "/jre/hotspot/normal/eclipse";
+    }
+
+    private static String javaExeName() {
+        return OsPaths.isWindows() ? "java.exe" : "java";
+    }
 
     /** Возвращает команду java (полный путь или просто "java"), при необходимости скачивая JRE. */
     public static String findOrInstallJava(ProgressListener progress) throws Exception {
@@ -37,7 +63,7 @@ public class JavaManager {
         LauncherSettings settings = LauncherSettings.load();
         if (settings.customJavaPath != null && !settings.customJavaPath.isBlank()) {
             Path custom = Path.of(settings.customJavaPath);
-            if (Files.isDirectory(custom)) custom = custom.resolve("bin").resolve("java.exe");
+            if (Files.isDirectory(custom)) custom = custom.resolve("bin").resolve(javaExeName());
             if (Files.exists(custom)) {
                 log.info("Используем Java из настроек: {}", custom);
                 return custom.toString();
@@ -46,7 +72,7 @@ public class JavaManager {
         }
 
         // 2. Своя JRE, скачанная лаунчером ранее
-        Path bundledJava = OsPaths.JRE_DIR.resolve("bin").resolve("java.exe");
+        Path bundledJava = OsPaths.JRE_DIR.resolve("bin").resolve(javaExeName());
         if (Files.exists(bundledJava)) {
             log.info("Используем JRE лаунчера: {}", bundledJava);
             return bundledJava.toString();
@@ -95,7 +121,6 @@ public class JavaManager {
         progress.onProgress(0);
 
         Files.createDirectories(OsPaths.JRE_DIR);
-        Path zipFile = OsPaths.GAME_DIR.resolve("jre_temp.zip");
 
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
@@ -108,34 +133,71 @@ public class JavaManager {
             throw new Exception("Не удалось скачать Java. Код: " + response.statusCode());
         }
 
-        try (InputStream body = response.body()) {
-            Files.copy(body, zipFile, StandardCopyOption.REPLACE_EXISTING);
-        }
         progress.onStatus("Распаковка Java...");
 
-        // Архив Temurin содержит корневую папку jdk-21.x — срезаем её
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                String name = entry.getName();
-                int firstSlash = name.indexOf('/');
-                if (firstSlash == -1) continue;
-
-                String strippedName = name.substring(firstSlash + 1);
-                if (strippedName.isEmpty()) continue;
-
-                Path targetPath = OsPaths.JRE_DIR.resolve(strippedName);
-                if (entry.isDirectory()) {
-                    Files.createDirectories(targetPath);
-                } else {
-                    Files.createDirectories(targetPath.getParent());
-                    Files.copy(zis, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
+        if (OsPaths.isWindows()) {
+            extractZip(response.body());
+        } else {
+            extractTarGz(response.body());
         }
 
-        Files.deleteIfExists(zipFile);
         progress.onStatus("Java успешно установлена!");
         log.info("Temurin 21 JRE установлена в {}", OsPaths.JRE_DIR);
+    }
+
+    private static void extractZip(InputStream body) throws Exception {
+        Path zipFile = OsPaths.GAME_DIR.resolve("jre_temp.zip");
+        try {
+            Files.copy(body, zipFile, StandardCopyOption.REPLACE_EXISTING);
+
+            // Архив Temurin содержит корневую папку jdk-21.x — срезаем её
+            try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
+                ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    String name = entry.getName();
+                    int firstSlash = name.indexOf('/');
+                    if (firstSlash == -1) continue;
+
+                    String strippedName = name.substring(firstSlash + 1);
+                    if (strippedName.isEmpty()) continue;
+
+                    Path targetPath = OsPaths.JRE_DIR.resolve(strippedName);
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(targetPath);
+                    } else {
+                        Files.createDirectories(targetPath.getParent());
+                        Files.copy(zis, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+        } finally {
+            Files.deleteIfExists(zipFile);
+        }
+    }
+
+    private static void extractTarGz(InputStream body) throws Exception {
+        Path tarFile = OsPaths.GAME_DIR.resolve("jre_temp.tar.gz");
+        try {
+            Files.copy(body, tarFile, StandardCopyOption.REPLACE_EXISTING);
+
+            // Срезаем корневую папку через --strip-components=1
+            Process process = new ProcessBuilder(
+                    "tar", "xf", tarFile.toAbsolutePath().toString(),
+                    "-C", OsPaths.JRE_DIR.toAbsolutePath().toString(),
+                    "--strip-components=1"
+            ).redirectErrorStream(true).start();
+
+            String output = new String(process.getInputStream().readAllBytes());
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                throw new Exception("Ошибка распаковки JRE (tar exit " + exitCode + "): " + output);
+            }
+
+            // Делаем java исполняемым (tar обычно сохраняет права, но на всякий случай)
+            Path javaExe = OsPaths.JRE_DIR.resolve("bin").resolve("java");
+            javaExe.toFile().setExecutable(true, false);
+        } finally {
+            Files.deleteIfExists(tarFile);
+        }
     }
 }
