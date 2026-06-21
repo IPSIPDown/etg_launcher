@@ -1,39 +1,41 @@
 package etg.ipsipdown.launcher.services;
 
 import com.google.gson.JsonObject;
+import etg.ipsipdown.launcher.utils.OsPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.RandomAccessFile;
+import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Discord Rich Presence («Играет в EternalSky») без сторонних библиотек —
- * минимальный клиент IPC-протокола Discord через named pipe.
- *
- * Чтобы включить: создай приложение на https://discord.com/developers/applications
- * (можно то же, где бот) и вставь его Application ID в APP_ID.
- * Пока APP_ID пустой — сервис просто ничего не делает.
+ * Discord Rich Presence без сторонних библиотек.
+ * Windows: named pipe \\.\pipe\discord-ipc-{i}
+ * Linux:   Unix domain socket в $XDG_RUNTIME_DIR/discord-ipc-{i} (и fallback-пути)
  */
 public class DiscordRichPresence {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordRichPresence.class);
 
-    /** Application ID из Discord Developer Portal. Пусто = выключено. */
     private static final String APP_ID = "1513444076517724181";
 
-    /**
-     * Режим «компаньона»: после запуска игры лаунчер не закрывается, а сворачивается
-     * в трей и держит статус «Играет на EternalSky», пока игра не завершится.
-     * ВЫКЛЮЧЕНО по умолчанию — при false лаунчер закрывается после запуска, как раньше.
-     */
     public static final boolean COMPANION_MODE = false;
 
-    private static RandomAccessFile pipe;
+    private static RandomAccessFile windowsPipe;
+    private static SocketChannel linuxSocket;
 
-    /** Подключиться и выставить статус. Все ошибки молча глотаются — это украшение, не критика. */
+    private static boolean isConnected() {
+        return OsPaths.isWindows() ? windowsPipe != null : linuxSocket != null;
+    }
+
     public static void connectAsync() {
         if (APP_ID.isBlank()) return;
         Thread t = new Thread(() -> {
@@ -50,28 +52,72 @@ public class DiscordRichPresence {
     }
 
     private static void connect() throws Exception {
-        Exception last = null;
-        for (int i = 0; i < 10; i++) {
-            try {
-                pipe = new RandomAccessFile("\\\\.\\pipe\\discord-ipc-" + i, "rw");
-                break;
-            } catch (Exception e) {
-                last = e;
-            }
+        if (OsPaths.isWindows()) {
+            connectWindows();
+        } else {
+            connectLinux();
         }
-        if (pipe == null) throw last != null ? last : new Exception("Discord не запущен");
 
-        // Handshake (opcode 0)
         JsonObject handshake = new JsonObject();
         handshake.addProperty("v", 1);
         handshake.addProperty("client_id", APP_ID);
         writeFrame(0, handshake.toString());
-        readFrame(); // ответ READY (или ошибка) — содержимое нам не нужно
+        readFrame();
     }
 
-    /** Обновить статус, если подключение живо. Ошибки молча глотаются. */
+    private static void connectWindows() throws Exception {
+        Exception last = null;
+        for (int i = 0; i < 10; i++) {
+            try {
+                windowsPipe = new RandomAccessFile("\\\\.\\pipe\\discord-ipc-" + i, "rw");
+                return;
+            } catch (Exception e) {
+                last = e;
+            }
+        }
+        throw last != null ? last : new Exception("Discord не запущен");
+    }
+
+    private static void connectLinux() throws Exception {
+        List<String> dirs = new ArrayList<>();
+
+        // Первый приоритет: $XDG_RUNTIME_DIR — стандарт на systemd-системах
+        String xdg = System.getenv("XDG_RUNTIME_DIR");
+        if (xdg != null && !xdg.isBlank()) dirs.add(xdg);
+
+        // Fallback через id -u -> /run/user/{uid}
+        try {
+            Process p = new ProcessBuilder("id", "-u").start();
+            p.waitFor(2, TimeUnit.SECONDS);
+            if (p.exitValue() == 0) {
+                String uid = new String(p.getInputStream().readAllBytes()).trim();
+                if (!uid.isBlank()) dirs.add("/run/user/" + uid);
+            }
+        } catch (Exception ignored) {}
+
+        // Финальные fallback-пути (старые версии Discord, snap-пакеты)
+        dirs.add(System.getProperty("java.io.tmpdir"));
+        dirs.add("/tmp");
+
+        Exception last = null;
+        for (String dir : dirs) {
+            if (dir == null || dir.isBlank()) continue;
+            for (int i = 0; i < 10; i++) {
+                try {
+                    Path socketPath = Path.of(dir, "discord-ipc-" + i);
+                    linuxSocket = SocketChannel.open(UnixDomainSocketAddress.of(socketPath));
+                    linuxSocket.configureBlocking(true);
+                    return;
+                } catch (Exception e) {
+                    last = e;
+                }
+            }
+        }
+        throw last != null ? last : new Exception("Discord не запущен");
+    }
+
     public static void updateActivity(String details, String state) {
-        if (pipe == null) return;
+        if (!isConnected()) return;
         try {
             setActivity(details, state);
         } catch (Exception e) {
@@ -106,16 +152,34 @@ public class DiscordRichPresence {
         buf.putInt(opcode);
         buf.putInt(data.length);
         buf.put(data);
-        pipe.write(buf.array());
+        byte[] bytes = buf.array();
+
+        if (OsPaths.isWindows()) {
+            windowsPipe.write(bytes);
+        } else {
+            ByteBuffer writeBuf = ByteBuffer.wrap(bytes);
+            while (writeBuf.hasRemaining()) linuxSocket.write(writeBuf);
+        }
     }
 
     private static void readFrame() throws Exception {
         byte[] header = new byte[8];
-        pipe.readFully(header);
+        readFully(header);
         int length = ByteBuffer.wrap(header, 4, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
         if (length > 0 && length < 65536) {
             byte[] body = new byte[length];
-            pipe.readFully(body);
+            readFully(body);
+        }
+    }
+
+    private static void readFully(byte[] buf) throws Exception {
+        if (OsPaths.isWindows()) {
+            windowsPipe.readFully(buf);
+        } else {
+            ByteBuffer bb = ByteBuffer.wrap(buf);
+            while (bb.hasRemaining()) {
+                if (linuxSocket.read(bb) == -1) throw new Exception("Discord закрыл соединение");
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 {
-  "version": "2.1.0",
+  "version": "2.1.1",
   "url": "https://github.com/IPSIPDown/etg_launcher/releases/download/latest/EternalSky.exe",
-  "sha256": "725e4e3c4e93a7fc239620e362ee268cc079f377d5d1f215c5d98b5ecfa14d62",
+  "sha256": "e6b5b3896eee94f7333d40717199ae6702e59018f93578756c6726a7dbef25b9",
   "url_linux": "https://github.com/IPSIPDown/etg_launcher/releases/download/latest/EternalSky.jar",
-  "sha256_linux": "4764e0655329489700839449e1480e1e3de74ff602579a0c110b32df92ae41d3"
+  "sha256_linux": "b74c567053fcc19f0986abb59d6f3e9434e2bce6ed2634ac59089c560700699d"
 }

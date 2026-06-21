@@ -28,7 +28,7 @@ public class SelfUpdateService {
 
     private static final Logger log = LoggerFactory.getLogger(SelfUpdateService.class);
 
-    public static final String CURRENT_VERSION = "2.1.0";
+    public static final String CURRENT_VERSION = "2.1.1";
 
     private static final String VERSION_URL =
             "https://raw.githubusercontent.com/IPSIPDown/etg_launcher/main/src/main/resources/version-version.json";

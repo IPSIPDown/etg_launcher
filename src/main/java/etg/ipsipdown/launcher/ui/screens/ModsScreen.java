@@ -18,9 +18,12 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -33,12 +36,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
- * Экран «Сборка»: список установленных модов, вкл/выкл, добавление своих.
- * Работает с папкой .eternalsky\mods (gameDir профиля) — именно её видит игра.
- * Добавленные вручную моды попадают в custom_mods.txt, чтобы синхронизация их не удаляла.
+ * Экран «Сборка»: список установленных модов, вкл/выкл, добавление своих, поиск по названию.
  */
 public class ModsScreen extends JPanel {
 
@@ -46,6 +49,9 @@ public class ModsScreen extends JPanel {
 
     private final LauncherWindow window;
     private final JPanel listContainer;
+    private JTextField searchField;
+
+    private List<ModInfo> allMods = List.of();
 
     public ModsScreen(LauncherWindow window) {
         this.window = window;
@@ -53,7 +59,32 @@ public class ModsScreen extends JPanel {
         setLayout(new BorderLayout());
         setBorder(new EmptyBorder(18, 24, 10, 24));
 
-        // --- Шапка ---
+        // --- Шапка (заголовок + кнопки + поиск) ---
+        JPanel northArea = new JPanel(new BorderLayout(0, 10));
+        northArea.setOpaque(false);
+        northArea.add(createTopBar(), BorderLayout.NORTH);
+        northArea.add(createSearchBar(), BorderLayout.SOUTH);
+        add(northArea, BorderLayout.NORTH);
+
+        // --- Список модов ---
+        listContainer = new JPanel();
+        listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
+        listContainer.setOpaque(false);
+
+        JScrollPane scrollPane = new JScrollPane(listContainer);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(new EmptyBorder(10, 0, 0, 0));
+        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        scrollPane.getVerticalScrollBar().setBlockIncrement(100);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
+        add(scrollPane, BorderLayout.CENTER);
+
+        refresh();
+    }
+
+    private JPanel createTopBar() {
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
 
@@ -75,24 +106,29 @@ public class ModsScreen extends JPanel {
         topButtons.add(refreshBtn);
         topButtons.add(addModBtn);
         top.add(topButtons, BorderLayout.EAST);
-        add(top, BorderLayout.NORTH);
+        return top;
+    }
 
-        // --- Список модов ---
-        listContainer = new JPanel();
-        listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
-        listContainer.setOpaque(false);
+    private JPanel createSearchBar() {
+        JPanel bar = new JPanel(new BorderLayout(8, 0));
+        bar.setOpaque(false);
 
-        JScrollPane scrollPane = new JScrollPane(listContainer);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(new EmptyBorder(14, 0, 0, 0));
-        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
-        scrollPane.getVerticalScrollBar().setBlockIncrement(100);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
-        add(scrollPane, BorderLayout.CENTER);
+        JLabel label = new JLabel("Поиск:");
+        label.setForeground(Theme.TEXT_MUTED);
+        label.setFont(Theme.body(13f, false));
+        bar.add(label, BorderLayout.WEST);
 
-        refresh();
+        searchField = new JTextField();
+        searchField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        searchField.setFont(Theme.body(13f, false));
+        searchField.putClientProperty("JTextField.placeholderText", "Название мода...");
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { applyFilter(); }
+            public void removeUpdate(DocumentEvent e) { applyFilter(); }
+            public void changedUpdate(DocumentEvent e) { applyFilter(); }
+        });
+        bar.add(searchField, BorderLayout.CENTER);
+        return bar;
     }
 
     public void refresh() {
@@ -106,24 +142,44 @@ public class ModsScreen extends JPanel {
 
         CompletableFuture.runAsync(() -> {
             List<ModInfo> mods = LocalModReader.getInstalledMods(OsPaths.MODS_DIR);
-
             SwingUtilities.invokeLater(() -> {
-                listContainer.removeAll();
-                if (mods.isEmpty()) {
-                    JLabel empty = new JLabel("Папка модов пуста. Нажми «Играть» — сборка скачается автоматически.", SwingConstants.CENTER);
-                    empty.setForeground(Theme.TEXT_MUTED);
-                    empty.setFont(Theme.body(14f, false));
-                    listContainer.add(empty);
-                } else {
-                    for (ModInfo mod : mods) {
-                        listContainer.add(createModPanel(mod));
-                        listContainer.add(Box.createRigidArea(new Dimension(0, 6)));
-                    }
-                }
-                listContainer.revalidate();
-                listContainer.repaint();
+                allMods = mods;
+                applyFilter();
             });
         });
+    }
+
+    private void applyFilter() {
+        String query = searchField != null ? searchField.getText().toLowerCase(Locale.ROOT).trim() : "";
+
+        List<ModInfo> filtered = query.isEmpty()
+                ? allMods
+                : allMods.stream()
+                        .filter(m -> m.displayName.toLowerCase(Locale.ROOT).contains(query)
+                                || m.fileName.toLowerCase(Locale.ROOT).contains(query))
+                        .collect(Collectors.toList());
+
+        listContainer.removeAll();
+
+        if (allMods.isEmpty()) {
+            JLabel empty = new JLabel("Папка модов пуста. Нажми «Играть» — сборка скачается автоматически.", SwingConstants.CENTER);
+            empty.setForeground(Theme.TEXT_MUTED);
+            empty.setFont(Theme.body(14f, false));
+            listContainer.add(empty);
+        } else if (filtered.isEmpty()) {
+            JLabel none = new JLabel("Ничего не найдено по запросу «" + query + "»", SwingConstants.CENTER);
+            none.setForeground(Theme.TEXT_MUTED);
+            none.setFont(Theme.body(14f, false));
+            listContainer.add(none);
+        } else {
+            for (ModInfo mod : filtered) {
+                listContainer.add(createModPanel(mod));
+                listContainer.add(Box.createRigidArea(new Dimension(0, 6)));
+            }
+        }
+
+        listContainer.revalidate();
+        listContainer.repaint();
     }
 
     private void addMod() {
@@ -136,10 +192,7 @@ public class ModsScreen extends JPanel {
             Files.createDirectories(OsPaths.MODS_DIR);
             Path target = OsPaths.MODS_DIR.resolve(selectedFile.getName());
             Files.copy(selectedFile.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
-
-            // Вносим в whitelist, чтобы синхронизация не удалила пользовательский мод
             addToWhitelist(selectedFile.getName());
-
             window.getNotifications().success("Мод добавлен: " + selectedFile.getName());
             refresh();
         } catch (Exception ex) {
@@ -155,7 +208,6 @@ public class ModsScreen extends JPanel {
                 StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
-    // Плашка одного мода
     private JPanel createModPanel(ModInfo mod) {
         RoundedPanel modPanel = new RoundedPanel(new BorderLayout(15, 0), 10);
         modPanel.setBorder(new EmptyBorder(8, 12, 8, 12));
@@ -164,7 +216,6 @@ public class ModsScreen extends JPanel {
         modPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
         modPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 1. Иконка мода
         JLabel iconLabel = new JLabel();
         if (mod.icon != null) {
             Image scaled = mod.icon.getScaledInstance(40, 40, Image.SCALE_SMOOTH);
@@ -176,7 +227,6 @@ public class ModsScreen extends JPanel {
         }
         modPanel.add(iconLabel, BorderLayout.WEST);
 
-        // 2. Текст (Имя + Версия/Тип)
         JPanel textPanel = new JPanel(new java.awt.GridLayout(2, 1));
         textPanel.setOpaque(false);
 
@@ -193,7 +243,6 @@ public class ModsScreen extends JPanel {
         textPanel.add(descLabel);
         modPanel.add(textPanel, BorderLayout.CENTER);
 
-        // 3. Кнопка Вкл/Выкл
         JCheckBox toggle = new JCheckBox(mod.isEnabled ? "Включен" : "Выключен", mod.isEnabled);
         toggle.setOpaque(false);
         toggle.setForeground(mod.isEnabled ? Theme.ACCENT : Theme.RED);
